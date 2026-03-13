@@ -298,15 +298,18 @@ def compute_gae(
         if t == num_steps - 1:
             # Rollout boundary: bootstrap off next_value; mask out if episode ended.
             nextnonterminal = 1.0 - float(next_done)
-            nextvalues :while= next_value
+            nextvalues = next_value
         else:
             # Mid-rollout: use the stored done flag and value from the buffer.
             nextnonterminal = 1.0 - dones[t + 1].item()
             nextvalues = values[t + 1]
 
+        delta = rewards[t] + gamma * nextvalues * nextnonterminal - values[t]
+        advantages[t] = lastgaelam = delta + gamma * gae_lambda * nextnonterminal * lastgaelam
+
         # TODO: compute the 1-step TD error δ_t and the GAE advantage A_t.
         
-        raise NotImplementedError # comment or delete this out once implemented
+        # raise NotImplementedError # comment or delete this out once implemented
 
     returns = advantages + values
     return advantages, returns
