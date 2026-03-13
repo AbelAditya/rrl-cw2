@@ -218,7 +218,13 @@ def compute_ratio(new_logprob: torch.Tensor, old_logprob: torch.Tensor) -> tuple
         ratio    : exp(logratio),         shape (minibatch,)
     """
     
-    raise NotImplementedError
+    # raise NotImplementedError
+    logratio, ratio = torch.zeros_like(new_logprob), torch.zeros_like(new_logprob)
+
+    for i in range(len(logratio)):
+        logratio[i] = np.log(new_logprob[i]) - np.log(old_logprob[i])
+        ratio[i] = np.exp(logratio[i])
+        
     return logratio, ratio
 
 
@@ -238,7 +244,10 @@ def compute_policy_loss(ratio: torch.Tensor, advantages: torch.Tensor, clip_coef
         You can use torch.clamp to performing the PPO clipping
     """
     
-    raise NotImplementedError
+    # raise NotImplementedError
+    policy_loss = 0
+    for i in range(args.minibatch_size):
+        policy_loss+=min(ratio[i]*advantages[i],np.clip(ratio[i],1-clip_coef,1+clip_coef)*advantages[i])
     return policy_loss 
 
 
@@ -253,7 +262,9 @@ def compute_value_loss(new_values: torch.Tensor, returns: torch.Tensor) -> torch
         Scalar loss tensor.
     """
    
-    raise NotImplementedError
+    v_loss = 0
+    for i in range(len(new_values)):
+        v_loss += (new_values[i]-returns[i])**2
     return v_loss
 
 
