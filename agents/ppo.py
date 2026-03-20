@@ -219,11 +219,9 @@ def compute_ratio(new_logprob: torch.Tensor, old_logprob: torch.Tensor) -> tuple
     """
     
     # raise NotImplementedError
-    logratio, ratio = torch.zeros_like(new_logprob), torch.zeros_like(new_logprob)
 
-    for i in range(len(logratio)):
-        logratio[i] = np.log(new_logprob[i]) - np.log(old_logprob[i])
-        ratio[i] = np.exp(logratio[i])
+    logratio = new_logprob - old_logprob
+    ratio = torch.exp(logratio)
         
     return logratio, ratio
 
@@ -245,10 +243,15 @@ def compute_policy_loss(ratio: torch.Tensor, advantages: torch.Tensor, clip_coef
     """
     
     # raise NotImplementedError
-    policy_loss = 0
-    for i in range(args.minibatch_size):
-        policy_loss+=min(ratio[i]*advantages[i],np.clip(ratio[i],1-clip_coef,1+clip_coef)*advantages[i])
-    return policy_loss 
+    # policy_loss = torch.tensor(0)
+    # for i in range(args.minibatch_size):
+    #     policy_loss+=min(ratio[i]*advantages[i],torch.clamp(ratio[i],1-clip_coef,1+clip_coef)*advantages[i]).long()
+    # return policy_loss 
+
+    loss_cpi = -advantages * ratio
+    loss_clip = -advantages * torch.clamp(ratio,1-clip_coef,1+clip_coef)
+
+    return torch.max(loss_cpi,loss_clip).mean()
 
 
 def compute_value_loss(new_values: torch.Tensor, returns: torch.Tensor) -> torch.Tensor:
@@ -262,10 +265,12 @@ def compute_value_loss(new_values: torch.Tensor, returns: torch.Tensor) -> torch
         Scalar loss tensor.
     """
    
-    v_loss = 0
-    for i in range(len(new_values)):
-        v_loss += (new_values[i]-returns[i])**2
-    return v_loss
+    # v_loss = torch.tensor(0)
+    # for i in range(len(new_values)):
+    #     v_loss += ((new_values[i]-returns[i])**2).long()
+    # return v_loss
+
+    return ((new_values-returns)**2).mean()
 
 
 def compute_gae(
