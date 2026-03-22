@@ -366,6 +366,8 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
+    print(f"USING DEVICE:{device}")
+
     # ── Environment setup ─────────────────────────────────────────────────
     env = make_env(args.env_id, args.gamma)
     assert isinstance(env.action_space, gym.spaces.Box), "only continuous action spaces supported"
