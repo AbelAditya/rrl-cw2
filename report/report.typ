@@ -65,6 +65,15 @@
   #line(length: 100%, stroke: 0.4pt + luma(160))
 ])
 
+// ─── Algorithm Introduction (10 marks) ───────────────────────────────────── 
+
+= Introduction to PPO and SAC
+
+// ─── Relevance to Robotics (3 marks)─────────────────────────────────────
+// ─── Environment Description (6 marks) ─────────────────────────────────────
+
+
+// ─── Hyperparameter Analysis (12 marks) ─────────────────────────────────────
 
 = PPO Hyperparameter Tuning
 
@@ -93,3 +102,34 @@
 - Two sets of $epsilon$ & $lambda$ values have shown good performance with close episodic returns
   - $[epsilon = 0.2, lambda = 0.9]$ : Average Episodic Return = 4449.39
   -  $[epsilon = 0.3, lambda = 0.95]$ : Average Episodic Return = 4568.06
+
+
+= SAC Hyperparameter Tuning
+
+- chose gamma and tau for hyperparameter tuning
+  - gamma controls adherence to rewards from future events therefore deciding whether the model is far-sighted or short-sighted
+  - tau controls the weight of value network weights and target value network weights in the calculation of new target value network weights which directly affect Q-function learning. 
+
+- for the purpose of hyperparameter tuning the number of training steps where reduced to 450k from 1000k(1 million)
+
+
+#figure(
+  table(
+    columns: (auto, auto, auto, auto,),
+    align: (left, right, right, right),
+    stroke: 0.5pt,
+    table.header(
+      [], 
+      [*$gamma = 0.90$*], 
+      [*$gamma = 0.95$*], 
+      [*$gamma = 0.99$*]
+    ),
+    [*$tau = 0.005$*], [2294.81], [2170.51], [8556.36],
+    [*$tau = 0.01$*],  [2371.91], [8707.92], [8552.37],
+    [*$tau = 0.05$*],   [2385.95], [2174.07], [*9418.79*],
+  ),
+  caption: [Average episode return for agents with different $gamma$ and $tau$ configurations averaged over 10 episodes],
+) <tab2>
+
+// ─── Results and Comparison (20 marks) ─────────────────────────────────────
+// ─── Proposed Robotics Task (25 marks) ─────────────────────────────────────

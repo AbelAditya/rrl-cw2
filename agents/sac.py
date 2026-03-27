@@ -271,7 +271,7 @@ class Args:
     env_id: str = "Hopper-v4"
     """the environment id of the task"""
     # ── Rollout collection ─────────────────────────────────────────────────
-    total_timesteps: int = 1000000
+    total_timesteps: int = 450000
     """total timesteps of the experiments"""
     num_envs: int = 1
     # ── SAC Parameters ──────────────────────────────────────────────────────
