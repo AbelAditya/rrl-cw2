@@ -69,9 +69,20 @@
 
 = Introduction to PPO and SAC
 
+Proximal Policy Optimization @PPO is an on policy gradient method that optimizes a clipped surrogate objective function. It was a direct improvement over the previously proposed Trust Region Policy Optimization's (TRPO) pitfalls due to the involvement of KL Divergence as a constraint over optimizing the surrogate objective function. PPO proposes the use of a clip function to prevent large policy updates instead of KL divergence penalty or constraint. "PPO outperforms other online policy gradient methods, and overall strikes a favorable balance between sample
+complexity, simplicity, and wall-time"@PPO.
+
+Soft Actor Critic (SAC) is an off-policy actor-critic RL algorithm based on the maximum entropy reinforcement leanring framework. The soft actor-critic algorithm incorporates three key ingredients: an actor-critic architecture with separate policy and value function networks, an off-policy formulation that enables reuse of previously collected data for efficiency, and entropy maximization to enable stability and exploration @SAC. This was an improvement over previously proposed RL methods in terms of sample efficiency as it is an off-policy method and stability to convergence and sensitivity to hyperparameters which was notoriously tough to achieve with off-policy model free methods. 
+
+// TODO: may choose to include relevant equations
+
 // ─── Relevance to Robotics (3 marks)─────────────────────────────────────
+
+= Relevance to Robotics
+
 // ─── Environment Description (6 marks) ─────────────────────────────────────
 
+= Environment Description
 
 // ─── Hyperparameter Analysis (12 marks) ─────────────────────────────────────
 
@@ -110,7 +121,7 @@
   - gamma controls adherence to rewards from future events therefore deciding whether the model is far-sighted or short-sighted
   - tau controls the weight of value network weights and target value network weights in the calculation of new target value network weights which directly affect Q-function learning. 
 
-- for the purpose of hyperparameter tuning the number of training steps where reduced to 450k from 1000k(1 million)
+- for the purpose of hyperparameter tuning the number of training steps where reduced to 450k from 1000k(1 million) 
 
 
 #figure(
@@ -132,4 +143,8 @@
 ) <tab2>
 
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
+= Results and Comparison
 // ─── Proposed Robotics Task (25 marks) ─────────────────────────────────────
+= Proposed Robotics Task
+
+#bibliography("ref.bib", title: "References")
