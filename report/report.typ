@@ -80,17 +80,25 @@ Soft Actor Critic (SAC) is an off-policy actor-critic RL algorithm based on the 
 
 = Relevance to Robotics
 
+Robotics pose specific set of challenges originating from real world setting that make using classical RL techniques infeasible. Methods like PPO and SAC mitigate these challenges quite well making them a good choice for robotics tasks. For instance, PPO and SAC can support large sizes of state space and action space and can generalize well to scenarios that these models have not encountered enough while training. These methods also work quite well with continuous action and state spaces making them an ideal choice for robotics. PPO and SAC both show fair amount of resilience towards noisy inputs through clipping policy update preventing large policy shifts in PPO and entropy regularized objective reducing over reliance on any single observation in SAC.
+
+Even though these methods work generally well and accomodate the above mentioned challenges, it is important to note that they individually work best for certain cases. PPO is feasible and effective in simulation-driven robotics workflows, where large amounts of data can be generated cheaply. In contrast, SAC is more feasible for real-world robotics applications. Its sample efficiency, robustness to noise, and ability to learn from off-policy data make it better suited for physical systems with limited interaction budgets, however it is tough to tune and is rather sensitive to hyperparameter tuning.
+
 // ─── Environment Description (6 marks) ─────────────────────────────────────
 
 = Environment Description
+
+- MDP formalism and why specifically half cheetah
 
 // ─── Hyperparameter Analysis (12 marks) ─────────────────────────────────────
 
 = PPO Hyperparameter Tuning
 
-- chose clip coefficient (epsilon) and GAE lambda for Hyperparameter tuning 
-  - $epsilon$: clips update step size for policy parameters
-  - $lambda$: trades off between bias and variance ; low $lambda$ $=>$ high bias $=>$ like TD , high $lambda$ $=>$ high variance $=>$ like Monte Carlo Method
+We chose to tune clip coefficient ($epsilon$) and $lambda$ (in GAE) as these affect the algorithm's working to its core. 
+
+The clip coefficient controls the policy update size, this effectively dictates how quickly or slowly the policy is moving towards the optimal. Having the correct step size is important because if the step size is too small then the policy would take a lot of timesteps to reach the optimal or else if the step size is to big the policy would end up overshooting the optimal, both cases result in the formulation of a poor policy. 
+
+Tuning lambda controls the bias-variance trade off in estimating the advantage term. As lambda moves from 0 to 1 it cause the shift in advantage estimation being carried out as TD(0) at $lambda = 0$ (high bias) and as Monte Carlo method at $lambda = 1$ (high variance). Temporal Difference introduces bias as it bootstraps value estimates from the immediate next step. Monte Carlo methods are unbiased but inherently show high variance, this originates from variance being accumulated over the length of the episodes. Hence, requires the agent to be run on many episodes for the value estimates to reliably converge. 
 
 #figure(
   table(
@@ -107,21 +115,23 @@ Soft Actor Critic (SAC) is an off-policy actor-critic RL algorithm based on the 
     [*$epsilon = 0.2$*],  [*4449.39*], [2706.83], [2397.13],
     [*$epsilon = 0.3$*],   [1131.88], [*4568.06*], [150.90],
   ),
-  caption: [Episode return for different values of $epsilon$ and $lambda$],
+  caption: [Episode return for different values of $epsilon$ and $lambda$ averaged over 10 episodes],
 ) <tab1>
 
-- Two sets of $epsilon$ & $lambda$ values have shown good performance with close episodic returns
-  - $[epsilon = 0.2, lambda = 0.9]$ : Average Episodic Return = 4449.39
-  -  $[epsilon = 0.3, lambda = 0.95]$ : Average Episodic Return = 4568.06
+// - Two sets of $epsilon$ & $lambda$ values have shown good performance with close episodic returns
+//   - $[epsilon = 0.2, lambda = 0.9]$ : Average Episodic Return = 4449.39
+//   -  $[epsilon = 0.3, lambda = 0.95]$ : Average Episodic Return = 4568.06
 
 
 = SAC Hyperparameter Tuning
 
-- chose gamma and tau for hyperparameter tuning
-  - gamma controls adherence to rewards from future events therefore deciding whether the model is far-sighted or short-sighted
-  - tau controls the weight of value network weights and target value network weights in the calculation of new target value network weights which directly affect Q-function learning. 
+For the purpose of hyperparameter tuning, $gamma$, the reward discount and tau, the polyak averaging constant. 
 
-- for the purpose of hyperparameter tuning the number of training steps where reduced to 450k from 1000k(1 million) 
+$gamma$ plays a pivotal role in dictating the agents behaviour. It controls, to describe it intuitively, the patience of the agent. Having a larger $gamma$ forces to the agent to make more long sighted decisions that is give more weight to future rewards, on the other hand a smaller $gamma$ forces the agents to make short sighted decisions. 
+
+$tau$, or the polyak averaging constant, is used in calculating a moving average of the value network weights directly contribute to Q-function leanring. It weighs the contribution of current value network weights and target value network weights (previous moving average estimate). Essentially controlling the influence of immediate changes encountered as part of learning.  
+
+For hyperparameter tuning the number of training steps were reduced to 450k from 1000k(1 million). 
 
 
 #figure(
@@ -144,7 +154,12 @@ Soft Actor Critic (SAC) is an off-policy actor-critic RL algorithm based on the 
 
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
 = Results and Comparison
+
+discuss structure and approach with sahaj
+
 // ─── Proposed Robotics Task (25 marks) ─────────────────────────────────────
 = Proposed Robotics Task
+
+- study POMDP
 
 #bibliography("ref.bib", title: "References")
