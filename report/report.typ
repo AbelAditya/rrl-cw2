@@ -125,7 +125,7 @@ Tuning lambda controls the bias-variance trade off in estimating the advantage t
 
 = SAC Hyperparameter Tuning
 
-For the purpose of hyperparameter tuning, $gamma$, the reward discount and tau, the polyak averaging constant. 
+For the purpose of hyperparameter tuning, $gamma$, the reward discount and tau, the polyak averaging constant were tuned. 
 
 $gamma$ plays a pivotal role in dictating the agents behaviour. It controls, to describe it intuitively, the patience of the agent. Having a larger $gamma$ forces to the agent to make more long sighted decisions that is give more weight to future rewards, on the other hand a smaller $gamma$ forces the agents to make short sighted decisions. 
 
