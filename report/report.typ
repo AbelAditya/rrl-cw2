@@ -100,6 +100,8 @@ The clip coefficient controls the policy update size, this effectively dictates 
 
 Tuning lambda controls the bias-variance trade off in estimating the advantage term. As lambda moves from 0 to 1 it cause the shift in advantage estimation being carried out as TD(0) at $lambda = 0$ (high bias) and as Monte Carlo method at $lambda = 1$ (high variance). Temporal Difference introduces bias as it bootstraps value estimates from the immediate next step. Monte Carlo methods are unbiased but inherently show high variance, this originates from variance being accumulated over the length of the episodes. Hence, requires the agent to be run on many episodes for the value estimates to reliably converge. 
 
+The following values of $epsilon$ were chosen: $epsilon in {0.1,0.2,0.3}$. We have explored values around the published default @PPO ($epsilon = 0.2$) testing change in agent behaviour under a transition from a strict ($epsilon = 0.1$) to a permissive ($epsilon = 0.3$) policy update constraint. For $lambda$ the following values were chosen: $lambda in {0.9, 0.95, 1.00}$. Similar strategy of exploring around the published defualt @PPO is followed, testing change in agent behaviour as advatage estimation moves from pure monte carlo at $lambda = 1$ to sligthy towards TD(0) at $lambda = 0.90$.  
+
 #figure(
   table(
     columns: (auto, auto, auto, auto,),
@@ -133,6 +135,7 @@ $tau$, or the polyak averaging constant, is used in calculating a moving average
 
 For hyperparameter tuning the number of training steps were reduced to 450k from 1000k(1 million). 
 
+The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Here we have tested the change that arises from agressive discounting($gamma = 0.90$) to long horizon planning ($gamma = 0.99$). For $tau$ we chose: $tau in {0.05, 0.001, 0.005}$. Here we have explored towards the upper range of $tau$ relative to the published default @SAC because exploring even lower values of $tau$ on a limited training budget would be uninformative.
 
 #figure(
   table(
