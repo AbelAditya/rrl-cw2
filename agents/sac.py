@@ -260,8 +260,8 @@ class Args:
    # ── Experiment settings ────────────────────────────────────────────────
     seed: int = 1
     """seed of the experiment"""
-    torch_deterministic: bool = True
-    """if toggled, `torch.backends.cudnn.deterministic=False`"""
+    torch_deterministic: bool = False
+    """if toggled, `torch.backends.cudnn.deterministic=True` (disables cuDNN auto-tuning, slower)"""
     cuda: bool = True
     """if toggled, cuda will be enabled by default"""
     output_dir: str = "output"
@@ -503,11 +503,11 @@ if __name__ == "__main__":
 
     max_action = float(envs.single_action_space.high[0])
 
-    actor = Actor(envs).to(device)
-    qf1 = SoftQNetwork(envs).to(device)
-    qf2 = SoftQNetwork(envs).to(device)
-    qf1_target = SoftQNetwork(envs).to(device)
-    qf2_target = SoftQNetwork(envs).to(device)
+    actor = torch.compile(Actor(envs).to(device))
+    qf1 = torch.compile(SoftQNetwork(envs).to(device))
+    qf2 = torch.compile(SoftQNetwork(envs).to(device))
+    qf1_target = torch.compile(SoftQNetwork(envs).to(device))
+    qf2_target = torch.compile(SoftQNetwork(envs).to(device))
     qf1_target.load_state_dict(qf1.state_dict())
     qf2_target.load_state_dict(qf2.state_dict())
     q_optimizer = optim.Adam(list(qf1.parameters()) + list(qf2.parameters()), lr=args.q_lr)
@@ -540,8 +540,9 @@ if __name__ == "__main__":
         if global_step < args.learning_starts:
             actions = np.array([envs.single_action_space.sample() for _ in range(envs.num_envs)])
         else:
-            actions, _, _ = actor.get_action(torch.Tensor(obs).to(device))
-            actions = actions.detach().cpu().numpy()
+            with torch.no_grad():
+                actions, _, _ = actor.get_action(torch.Tensor(obs).to(device))
+            actions = actions.cpu().numpy()
 
         # TRY NOT TO MODIFY: execute the game and log data.
         next_obs, rewards, terminations, truncations, infos = envs.step(actions)
@@ -581,7 +582,7 @@ if __name__ == "__main__":
             qf_loss = qf1_loss + qf2_loss
 
             # optimize the model
-            q_optimizer.zero_grad()
+            q_optimizer.zero_grad(set_to_none=True)
             qf_loss.backward()
             q_optimizer.step()
 
@@ -591,16 +592,14 @@ if __name__ == "__main__":
             min_qf_pi = torch.min(qf1_pi, qf2_pi)
             actor_loss = compute_actor_loss(log_pi, min_qf_pi, alpha)
 
-            actor_optimizer.zero_grad()
+            actor_optimizer.zero_grad(set_to_none=True)
             actor_loss.backward()
             actor_optimizer.step()
 
             if args.autotune:
-                with torch.no_grad():
-                    _, log_pi, _ = actor.get_action(data.observations)
-                alpha_loss = compute_alpha_loss(log_alpha, log_pi, target_entropy)
+                alpha_loss = compute_alpha_loss(log_alpha, log_pi.detach(), target_entropy)
 
-                a_optimizer.zero_grad()
+                a_optimizer.zero_grad(set_to_none=True)
                 alpha_loss.backward()
                 a_optimizer.step()
                 alpha = log_alpha.exp().item()
