@@ -19,6 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.amp import autocast
 import tyro
 import yaml
 
@@ -123,12 +124,12 @@ class BaseBuffer(ABC):
 
 
 class ReplayBuffer(BaseBuffer):
-    observations: np.ndarray
-    next_observations: np.ndarray
-    actions: np.ndarray
-    rewards: np.ndarray
-    dones: np.ndarray
-    timeouts: np.ndarray
+    observations: torch.Tensor
+    next_observations: torch.Tensor
+    actions: torch.Tensor
+    rewards: torch.Tensor
+    dones: torch.Tensor
+    timeouts: torch.Tensor
 
     def __init__(
         self,
@@ -144,9 +145,6 @@ class ReplayBuffer(BaseBuffer):
 
         self.buffer_size = max(buffer_size // n_envs, 1)
 
-        if psutil is not None:
-            mem_available = psutil.virtual_memory().available
-
         if optimize_memory_usage and handle_timeout_termination:
             raise ValueError(
                 "ReplayBuffer does not support optimize_memory_usage = True "
@@ -154,28 +152,36 @@ class ReplayBuffer(BaseBuffer):
             )
         self.optimize_memory_usage = optimize_memory_usage
 
-        self.observations = np.zeros((self.buffer_size, self.n_envs, *self.obs_shape), dtype=observation_space.dtype)
+        # Allocate buffer tensors directly on the target device to avoid
+        # per-step CPU→GPU transfers during sampling.
+        obs_dtype = torch.float32
+        act_dtype = torch.float32
 
-        if not optimize_memory_usage:
-            self.next_observations = np.zeros((self.buffer_size, self.n_envs, *self.obs_shape), dtype=observation_space.dtype)
-
-        self.actions = np.zeros(
-            (self.buffer_size, self.n_envs, self.action_dim), dtype=self._maybe_cast_dtype(action_space.dtype)
+        self.observations = torch.zeros(
+            (self.buffer_size, self.n_envs, *self.obs_shape), dtype=obs_dtype, device=self.device
         )
 
-        self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
-        self.dones = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        if not optimize_memory_usage:
+            self.next_observations = torch.zeros(
+                (self.buffer_size, self.n_envs, *self.obs_shape), dtype=obs_dtype, device=self.device
+            )
+
+        self.actions = torch.zeros(
+            (self.buffer_size, self.n_envs, self.action_dim), dtype=act_dtype, device=self.device
+        )
+
+        self.rewards = torch.zeros((self.buffer_size, self.n_envs), dtype=torch.float32, device=self.device)
+        self.dones = torch.zeros((self.buffer_size, self.n_envs), dtype=torch.float32, device=self.device)
         self.handle_timeout_termination = handle_timeout_termination
-        self.timeouts = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.timeouts = torch.zeros((self.buffer_size, self.n_envs), dtype=torch.float32, device=self.device)
 
         if psutil is not None:
+            mem_available = psutil.virtual_memory().available
             total_memory_usage: float = (
                 self.observations.nbytes + self.actions.nbytes + self.rewards.nbytes + self.dones.nbytes
             )
-
             if not optimize_memory_usage:
                 total_memory_usage += self.next_observations.nbytes
-
             if total_memory_usage > mem_available:
                 total_memory_usage /= 1e9
                 mem_available /= 1e9
@@ -199,19 +205,23 @@ class ReplayBuffer(BaseBuffer):
 
         action = action.reshape((self.n_envs, self.action_dim))
 
-        self.observations[self.pos] = np.array(obs)
+        # Write incoming numpy data directly into the pre-allocated GPU tensors.
+        self.observations[self.pos].copy_(torch.as_tensor(obs, dtype=torch.float32), non_blocking=True)
 
         if self.optimize_memory_usage:
-            self.observations[(self.pos + 1) % self.buffer_size] = np.array(next_obs)
+            self.observations[(self.pos + 1) % self.buffer_size].copy_(
+                torch.as_tensor(next_obs, dtype=torch.float32), non_blocking=True
+            )
         else:
-            self.next_observations[self.pos] = np.array(next_obs)
+            self.next_observations[self.pos].copy_(torch.as_tensor(next_obs, dtype=torch.float32), non_blocking=True)
 
-        self.actions[self.pos] = np.array(action)
-        self.rewards[self.pos] = np.array(reward)
-        self.dones[self.pos] = np.array(done)
+        self.actions[self.pos].copy_(torch.as_tensor(action, dtype=torch.float32), non_blocking=True)
+        self.rewards[self.pos].copy_(torch.as_tensor(reward, dtype=torch.float32), non_blocking=True)
+        self.dones[self.pos].copy_(torch.as_tensor(done, dtype=torch.float32), non_blocking=True)
 
         if self.handle_timeout_termination:
-            self.timeouts[self.pos] = np.array([info.get("TimeLimit.truncated", False) for info in infos])
+            timeouts = np.array([info.get("TimeLimit.truncated", False) for info in infos], dtype=np.float32)
+            self.timeouts[self.pos].copy_(torch.as_tensor(timeouts, dtype=torch.float32), non_blocking=True)
 
         self.pos += 1
         if self.pos == self.buffer_size:
@@ -235,15 +245,14 @@ class ReplayBuffer(BaseBuffer):
         else:
             next_obs = self.next_observations[batch_inds, env_indices, :]
 
-        data = (
-            self.observations[batch_inds, env_indices, :],
-            self.actions[batch_inds, env_indices, :],
-            next_obs,
-            # Only use dones that are not due to timeouts
-            (self.dones[batch_inds, env_indices] * (1 - self.timeouts[batch_inds, env_indices])).reshape(-1, 1),
-            self.rewards[batch_inds, env_indices].reshape(-1, 1),
+        # All tensors already live on the device — index directly, no transfer needed.
+        return ReplayBufferSamples(
+            observations=self.observations[batch_inds, env_indices, :],
+            actions=self.actions[batch_inds, env_indices, :],
+            next_observations=next_obs,
+            dones=(self.dones[batch_inds, env_indices] * (1 - self.timeouts[batch_inds, env_indices])).reshape(-1, 1),
+            rewards=self.rewards[batch_inds, env_indices].reshape(-1, 1),
         )
-        return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
 
     @staticmethod
     def _maybe_cast_dtype(dtype):
@@ -299,6 +308,10 @@ class Args:
     """automatic tuning of the entropy coefficient"""
     final_run: bool = False
     """If True, save outputs to final_run/seed{seed}/ instead of a timestamped directory."""
+    use_bf16: bool = True
+    """Use bfloat16 mixed precision for training forward passes (requires Ampere+ GPU; no-op on CPU)."""
+    utd_ratio: int = 1
+    """Gradient updates per environment step (Update-To-Data ratio). Values > 1 improve sample efficiency."""
 
 
 def make_env(env_id, seed):
@@ -567,46 +580,58 @@ if __name__ == "__main__":
 
         # ALGO LOGIC: training.
         if global_step > args.learning_starts:
-            data = rb.sample(args.batch_size)
-            with torch.no_grad():
-                next_state_actions, next_state_log_pi, _ = actor.get_action(data.next_observations)
-                qf1_next_target = qf1_target(data.next_observations, next_state_actions)
-                qf2_next_target = qf2_target(data.next_observations, next_state_actions)
-                min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * next_state_log_pi
-                next_q_value = compute_q_target(data.rewards.flatten(), data.dones.flatten(), min_qf_next_target.view(-1), args.gamma)
+            amp_device = "cuda" if device.type == "cuda" else "cpu"
+            amp_dtype = torch.bfloat16 if (args.use_bf16 and device.type == "cuda") else torch.float32
 
-            qf1_a_values = qf1(data.observations, data.actions).view(-1)
-            qf2_a_values = qf2(data.observations, data.actions).view(-1)
-            qf1_loss = F.mse_loss(qf1_a_values, next_q_value)
-            qf2_loss = F.mse_loss(qf2_a_values, next_q_value)
-            qf_loss = qf1_loss + qf2_loss
+            for _ in range(args.utd_ratio):
+                data = rb.sample(args.batch_size)
 
-            # optimize the model
-            q_optimizer.zero_grad(set_to_none=True)
-            qf_loss.backward()
-            q_optimizer.step()
+                with torch.no_grad():
+                    with autocast(device_type=amp_device, dtype=amp_dtype):
+                        next_state_actions, next_state_log_pi, _ = actor.get_action(data.next_observations)
+                        qf1_next_target = qf1_target(data.next_observations, next_state_actions)
+                        qf2_next_target = qf2_target(data.next_observations, next_state_actions)
+                        min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * next_state_log_pi
+                    # compute_q_target uses simple arithmetic — keep in float32 for stability
+                    next_q_value = compute_q_target(
+                        data.rewards.flatten(), data.dones.flatten(),
+                        min_qf_next_target.float().view(-1), args.gamma
+                    )
 
-            pi, log_pi, _ = actor.get_action(data.observations)
-            qf1_pi = qf1(data.observations, pi)
-            qf2_pi = qf2(data.observations, pi)
-            min_qf_pi = torch.min(qf1_pi, qf2_pi)
-            actor_loss = compute_actor_loss(log_pi, min_qf_pi, alpha)
+                with autocast(device_type=amp_device, dtype=amp_dtype):
+                    qf1_a_values = qf1(data.observations, data.actions).view(-1)
+                    qf2_a_values = qf2(data.observations, data.actions).view(-1)
+                qf1_loss = F.mse_loss(qf1_a_values.float(), next_q_value)
+                qf2_loss = F.mse_loss(qf2_a_values.float(), next_q_value)
+                qf_loss = qf1_loss + qf2_loss
 
-            actor_optimizer.zero_grad(set_to_none=True)
-            actor_loss.backward()
-            actor_optimizer.step()
+                # optimize the model
+                q_optimizer.zero_grad(set_to_none=True)
+                qf_loss.backward()
+                q_optimizer.step()
 
-            if args.autotune:
-                alpha_loss = compute_alpha_loss(log_alpha, log_pi.detach(), target_entropy)
+                with autocast(device_type=amp_device, dtype=amp_dtype):
+                    pi, log_pi, _ = actor.get_action(data.observations)
+                    qf1_pi = qf1(data.observations, pi)
+                    qf2_pi = qf2(data.observations, pi)
+                    min_qf_pi = torch.min(qf1_pi, qf2_pi)
+                actor_loss = compute_actor_loss(log_pi.float(), min_qf_pi.float(), alpha)
 
-                a_optimizer.zero_grad(set_to_none=True)
-                alpha_loss.backward()
-                a_optimizer.step()
-                alpha = log_alpha.exp().item()
+                actor_optimizer.zero_grad(set_to_none=True)
+                actor_loss.backward()
+                actor_optimizer.step()
 
-            # update the target networks
-            soft_update(qf1, qf1_target, args.tau)
-            soft_update(qf2, qf2_target, args.tau)
+                if args.autotune:
+                    alpha_loss = compute_alpha_loss(log_alpha, log_pi.detach().float(), target_entropy)
+
+                    a_optimizer.zero_grad(set_to_none=True)
+                    alpha_loss.backward()
+                    a_optimizer.step()
+                    alpha = log_alpha.exp().item()
+
+                # update the target networks
+                soft_update(qf1, qf1_target, args.tau)
+                soft_update(qf2, qf2_target, args.tau)
 
             if global_step % 100 == 0:
                 print("SPS:", int(global_step / (time.time() - start_time)))

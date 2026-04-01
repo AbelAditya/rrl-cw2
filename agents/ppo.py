@@ -26,8 +26,8 @@ class Args:
     # ── Experiment settings ────────────────────────────────────────────────
     seed: int = 1
     """Random seed for reproducibility (Python, NumPy, and PyTorch)."""
-    torch_deterministic: bool = True
-    """Force deterministic CUDA ops.  Slightly slower but reproducible."""
+    torch_deterministic: bool = False
+    """Force deterministic CUDA ops (True = slower but reproducible, False = faster)."""
     cuda: bool = True
     """Use GPU if available; falls back to CPU automatically."""
     output_dir: str = "output"
@@ -373,7 +373,7 @@ if __name__ == "__main__":
     assert isinstance(env.action_space, gym.spaces.Box), "only continuous action spaces supported"
 
     # ── Agent and optimiser ───────────────────────────────────────────────
-    agent = Agent(env).to(device)
+    agent = torch.compile(Agent(env).to(device))
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ── Rollout storage ───────────────────────────────────────────────────
@@ -504,7 +504,7 @@ if __name__ == "__main__":
                 loss = pg_loss - args.ent_coef * entropy_loss + args.vf_coef * v_loss
 
                 # ── Gradient step ─────────────────────────────────────
-                optimizer.zero_grad()
+                optimizer.zero_grad(set_to_none=True)
                 loss.backward()
                 # Clip gradient norm to prevent excessively large updates.
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
