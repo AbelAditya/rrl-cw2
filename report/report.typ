@@ -108,10 +108,29 @@
 
 Proximal Policy Optimization (PPO) @PPO and Soft Actor-Critic (SAC) @SAC are two widely used deep reinforcement learning algorithms which are introduced in the late 2010s. These algorithms are use for continous control but they differ in how they use the _data_. PPO is an on-policy method, which means that each policy iteration update is computed using tragectories collected by the current policy, and when the policy is updated all previously gathered data is discarded. SAC, on the other hand, is an off-policy method, it stores the previous transitions in a replay buffer, meaning that it can continue to learn from older transitions stored in the buffer, which usually makes it much more sample efficient.
 
-PPO is a gradient method that seek to take the largest possible improvement step with destablizing the policy.
+PPO is a gradient method that seek to take the largest possible improvement step without destablizing the policy. It was developed as a practical improvement over Trust Region Policy Optimization (TRPO) \@trpo, which enforced a KL divergence constraint on the policy updates. PPO replaces the hard trust-region style of KL divergence with a clipped surrogate objective. The core mechanism relies on the ratio between the updated and the old policies:
 
-Proximal Policy Optimization @PPO is a gradient method that optimizes a clipped surrogate objective function. It was a direct improvement over the previously proposed Trust Region Policy Optimization's (TRPO) pitfalls due to the involvement of KL Divergence as a constraint over optimizing the surrogate objective function. PPO proposes the use of a clip function to prevent large policy updates instead of KL divergence penalty or constraint. "PPO outperforms other online policy gradient methods, and overall strikes a favorable balance between sample
-complexity, simplicity, and wall-time"@PPO.
+$ r_t(theta) = (pi_theta(a_t | s_t)) / (pi_(theta_"old")(a_t | s_t)) $ <r_func>
+
+Though we implement this a bit differently, we use,
+
+$ log r_t (theta) = log pi_theta (a_t | s_t) - log pi_theta_"old" (a_t | s_t) $
+
+then exponentiate to obtain, @r_func. When this ratio is close to 1, the new policy behaves similary to the old one. PPO prevents this ratio from deviating too far by clipping it:
+
+$ L^"CLIP"(theta) = 1/(|cal(B)|) sum_(t in cal(B)) max(-hat(A)_t dot r_t(theta), -hat(A)_t dot "clip"(r_t(theta), 1 - epsilon, 1 + epsilon)) $
+
+$hat(A)_t$ here is the advantage estimation. Before, PPO updates the policy we must estimate how better each action was compared to the baseline. We implement this via Generalised Advantage Estimation, which iterates backward through a collected rollout, and at each timestep t, we compute TD error:
+
+$ delta_t = r_t + gamma V(s_(t + 1)) (1  - d_t) - V(s_t) $
+
+where $d_1$ is 1 if the episode is terminated at step $t$. The advantage is then accumulate via recursively going back the timesteps
+
+$ hat(A)_t  = delta_t + gamma lambda(1 - d_t) hat(A)_(t + 1) $
+
+with, $hat(A) = 0$ at the rollout boundary.
+
+
 
 Soft Actor Critic (SAC) is an off-policy actor-critic RL algorithm based on the maximum entropy reinforcement leanring framework. The soft actor-critic algorithm incorporates three key ingredients: an actor-critic architecture with separate policy and value function networks, an off-policy formulation that enables reuse of previously collected data for efficiency, and entropy maximization to enable stability and exploration @SAC. It consists of an actor trying arrive at an optimal policy and a critic that evaluates the generated policy. Both actor critic tend to get better with training, critic building more accurate estimations of state value and Q functions and the actor generating policies with higher returns. The algorithm maintains four different set of weights as described ahead: $psi$ for a soft value function approximator, *$V_psi$* that essentially estimates state value functions of various states, $theta$ for Q value network or critic, *$Q_theta$*, that essentially estimates Q-function values for various state action pairs, $phi$ for the policy network or actor,*$pi_phi$*, that generates policies and finally $overline(psi)$ which represents a target value function *$V_overline(psi)$* and is updated as a moving average of the weights of the soft value function approximator $V_psi$. The following loss functions were proposed in the original paper and the weights are updated by minimising over the mentioned loss functions.
 
