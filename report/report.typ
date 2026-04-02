@@ -198,7 +198,7 @@ The following values of $epsilon$ were chosen: $epsilon in {0.1,0.2,0.3}$. We ha
     ),
     [*$epsilon = 0.1$*], [2498.17], [1419.31], [11.57],
     [*$epsilon = 0.2$*], [2277.72], [3049.39], [107.12],
-    [*$epsilon = 0.3$*], [3204.60], [507.76], [72.97],
+    [*$epsilon = 0.3$*], [*3204.60*], [507.76], [72.97],
   ),
   caption: [Average episodic return in Ant-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using PPO algorithm],
 ) <tab2>
@@ -244,9 +244,9 @@ The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Her
       [*$gamma = 0.95$*], 
       [*$gamma = 0.99$*]
     ),
-    [*$tau = 0.005$*], [], [], [],
-    [*$tau = 0.01$*],  [], [], [],
-    [*$tau = 0.05$*],  [], [], [],
+    [*$tau = 0.005$*], [652.43], [2143.56], [],
+    [*$tau = 0.01$*],  [892.43], [1616.85], [5016.65],
+    [*$tau = 0.05$*],  [700.09], [2290.87], [3480.42],
   ),
   caption: [Average episodic return in Ant-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using SAC algorithm],
 ) <tab4>
