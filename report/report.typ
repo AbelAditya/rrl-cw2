@@ -113,7 +113,32 @@ PPO is a gradient method that seek to take the largest possible improvement step
 Proximal Policy Optimization @PPO is a gradient method that optimizes a clipped surrogate objective function. It was a direct improvement over the previously proposed Trust Region Policy Optimization's (TRPO) pitfalls due to the involvement of KL Divergence as a constraint over optimizing the surrogate objective function. PPO proposes the use of a clip function to prevent large policy updates instead of KL divergence penalty or constraint. "PPO outperforms other online policy gradient methods, and overall strikes a favorable balance between sample
 complexity, simplicity, and wall-time"@PPO.
 
-Soft Actor Critic (SAC) is an off-policy actor-critic RL algorithm based on the maximum entropy reinforcement leanring framework. The soft actor-critic algorithm incorporates three key ingredients: an actor-critic architecture with separate policy and value function networks, an off-policy formulation that enables reuse of previously collected data for efficiency, and entropy maximization to enable stability and exploration @SAC. This was an improvement over previously proposed RL methods in terms of sample efficiency as it is an off-policy method and stability to convergence and sensitivity to hyperparameters which was notoriously tough to achieve with off-policy model free methods.
+Soft Actor Critic (SAC) is an off-policy actor-critic RL algorithm based on the maximum entropy reinforcement leanring framework. The soft actor-critic algorithm incorporates three key ingredients: an actor-critic architecture with separate policy and value function networks, an off-policy formulation that enables reuse of previously collected data for efficiency, and entropy maximization to enable stability and exploration @SAC. It consists of an actor trying arrive at an optimal policy and a critic that evaluates the generated policy. Both actor critic tend to get better with training, critic building more accurate estimations of state value and Q functions and the actor generating policies with higher returns. The algorithm maintains four different set of weights as described ahead: $psi$ for a soft value function approximator, *$V_psi$* that essentially estimates state value functions of various states, $theta$ for Q value network or critic, *$Q_theta$*, that essentially estimates Q-function values for various state action pairs, $phi$ for the policy network or actor,*$pi_phi$*, that generates policies and finally $overline(psi)$ which represents a target value function *$V_overline(psi)$* and is updated as a moving average of the weights of the soft value function approximator $V_psi$. The following loss functions were proposed in the original paper and the weights are updated by minimising over the mentioned loss functions.
+
+$
+&J_(V)(psi) = E_(s_t ~ D)[1/2(V_(psi)(s_t) - E_(a_t ~ pi_phi)[Q_(theta)(s_t, a_t) - log pi(a_t|s_t)])^2] \ $ <eq1>
+$
+&J_(Q)(theta)=  E_((s_t,a_t)~D)[1/2(Q_(theta)(s_t,a_t) - hat(Q)(s_t,a_t))^2]  "where",\  &hat(Q)(s_t,a_t) = r(s_t,a_t) + gamma E_(s_(t+1) ~ p)[V_(overline(psi))(s_(t+1))]\ $ <eq2>
+
+$
+&J_(pi)(phi) =  E_(s_t ~ D,epsilon_t ~ N)[log pi_(phi)(f_(phi)(epsilon_t;s_t)|s_t) - Q_(theta)(s_t,f(epsilon_t;s_t))]
+$ <eq3>
+
+$
+&overline(psi) <- tau psi + (1-tau)psi
+$ <eq4>
+
+However in the code implementation we don't maintain a separate soft value network and directly train $psi$ on critic losses replacing $theta$ in @eq2. Essentially @eq2 can be rewritten as the following:-
+$
+  &J_(Q)(psi)=  E_((s_t,a_t)~D)[1/2(Q_(psi)(s_t,a_t) - hat(Q)(s_t,a_t))^2]  "where",\  &hat(Q)(s_t,a_t) = r(s_t,a_t) + gamma E_(s_(t+1) ~ p)[V_(overline(psi))(s_(t+1))]\
+$
+
+The target netwrok weights $overline(psi)$ are now calculated directly as a moving average of the critic weights.
+
+A neat little trick that was proposed in the original paper and is also a part of the code implementation that is worth noting is that, we actually train two sets of Q-function network weights ${psi_1, psi_2}$ that are trained independently to mitigate positive bias. The minimum of the two Q-functions is then utilised in @eq1 and @eq3. 
+
+
+SAC was an improvement over previously proposed RL methods in terms of sample efficiency as it is an off-policy method and stability to convergence and sensitivity to hyperparameters which was notoriously tough to achieve with off-policy model free methods.
 
 // TODO: may choose to include relevant equations
 
