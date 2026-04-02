@@ -137,7 +137,9 @@ def load_agent(run_dir: str, device: str = "cpu"):
         a_scale = torch.tensor((act_space.high - act_space.low) / 2.0, dtype=torch.float32)
         a_bias  = torch.tensor((act_space.high + act_space.low) / 2.0, dtype=torch.float32)
         actor   = SACActorNet(obs_dim, action_dim, a_scale, a_bias).to(device)
-        actor.load_state_dict(data)
+        # torch.compile() wraps every key with "_orig_mod." – strip it when present
+        state_dict = {k.removeprefix("_orig_mod."): v for k, v in data.items()}
+        actor.load_state_dict(state_dict)
         tmp_env.close()
         return actor, env_id, alg, None
 
@@ -314,11 +316,19 @@ def cmd_eval(args) -> None:
             cfg = yaml.safe_load(f)
 
         print(f"\nLoading: {run_dir.name}")
-        agent, env_id, alg, obs_rms = load_agent(str(run_dir), device=args.device)
+        try:
+            agent, env_id, alg, obs_rms = load_agent(str(run_dir), device=args.device)
+        except Exception as e:
+            print(f"  Skipping {run_dir.name}: {e}")
+            continue
 
         reward_sum = 0.0
         for trial in range(1, args.trials + 1):
-            reward = rollout_headless(agent, env_id, obs_rms, device=args.device, max_steps=args.max_steps)
+            try:
+                reward = rollout_headless(agent, env_id, obs_rms, device=args.device, max_steps=args.max_steps)
+            except Exception as e:
+                print(f"  trial {trial} failed: {e}")
+                continue
             reward_sum += reward
             print(f"  trial {trial}/{args.trials}  return={reward:.2f}")
 
