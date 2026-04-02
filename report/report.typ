@@ -273,6 +273,13 @@ The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Her
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
 = Results and Comparison
 
+We found a general trend of decreasing performance while shifting from HalfCheetah-v4 environment to Ant-v4 environment. This can be attributed to an increase in complexity for achieving locomotion. [Ant-v4 more complex because more joints to control $6->8$, there is also a complexity of maintaining a heading or building a heading agnostic locomotion strategy.]. SAC consistently outperformed PPO across both environments; this has been discussed in detail later in this section. 
+
+$lambda = 0.95$ & $epsilon = 0.3$
+We got the best performance from *PPO* for *HalfCheetah-v4* environment using *${lambda=0.95, epsilon = 0.3}$* giving an average episodic return of *4568.06* and for *Ant-v4* environment using *${lambda = 0.9,epsilon = 0.3}$* giving an average episodic return of *3204.60*. We can infer that a more permissive policy update constraint was required because of having a limited training budget. We notice a shift towards Temporal Difference approximations of advantage showing better performance dk y.
+
+- comparatively SAC gave better performance than PPO
+
 Even though these methods work generally well and accomodate the above mentioned challenges, it is important to note that they individually work best for certain cases. PPO is feasible and effective in simulation-driven robotics workflows, where large amounts of data can be generated cheaply. In contrast, SAC is more feasible for real-world robotics applications. Its sample efficiency, robustness to noise, and ability to learn from off-policy data make it better suited for physical systems with limited interaction budgets, however it is tough to tune and is rather sensitive to hyperparameter tuning.
 
 - SAC
