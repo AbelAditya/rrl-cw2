@@ -16,6 +16,7 @@ import torch.nn as nn
 import torch.optim as optim
 import tyro
 import yaml
+from torch.amp import autocast
 from torch.distributions.normal import Normal
 
 
@@ -84,6 +85,8 @@ class Args:
     """Total policy-update iterations (= total_timesteps // batch_size).  Set at runtime."""
     final_run: bool = False
     """If True, save outputs to final_run/seed{seed}/ instead of a timestamped directory."""
+    use_bf16: bool = True
+    """Use bfloat16 mixed precision for training forward passes (requires Ampere+ GPU; no-op on CPU)."""
 
 
 # ── Environment factory ───────────────────────────────────────────────────────
@@ -364,7 +367,14 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
 
-    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+    if args.cuda and torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    amp_device = device.type if device.type in ("cuda", "cpu") else "cpu"
+    amp_dtype = torch.bfloat16 if (args.use_bf16 and device.type == "cuda") else torch.float32
 
     print(f"USING DEVICE:{device}")
 
@@ -470,12 +480,14 @@ if __name__ == "__main__":
 
                 # Re-evaluate stored actions under the *current* (updated) policy.
                 # This gives new log-probs, entropy, and value estimates.
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(
-                    b_obs[mb_inds], b_actions[mb_inds]
-                )
+                with autocast(device_type=amp_device, dtype=amp_dtype):
+                    _, newlogprob, entropy, newvalue = agent.get_action_and_value(
+                        b_obs[mb_inds], b_actions[mb_inds]
+                    )
 
                 # ── Importance-sampling ratio ─────────────────────────
-                logratio, ratio = compute_ratio(newlogprob, b_logprobs[mb_inds])
+                # Cast to float32 for numerical stability of ratio/log computations
+                logratio, ratio = compute_ratio(newlogprob.float(), b_logprobs[mb_inds])
 
                 # Diagnostics (no gradient):
                 with torch.no_grad():
@@ -496,11 +508,11 @@ if __name__ == "__main__":
                 pg_loss = compute_policy_loss(ratio, mb_advantages, args.clip_coef)
 
                 # ── Value (critic) loss ───────────────────────────────
-                newvalue = newvalue.view(-1)
+                newvalue = newvalue.float().view(-1)
                 v_loss = compute_value_loss(newvalue, b_returns[mb_inds])
 
                 # ── Entropy bonus ─────────────────────────────────────
-                entropy_loss = entropy.mean()
+                entropy_loss = entropy.float().mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + args.vf_coef * v_loss
 
                 # ── Gradient step ─────────────────────────────────────

@@ -508,7 +508,12 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
 
-    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+    if args.cuda and torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
 
     # env setup
     envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed + i) for i in range(args.num_envs)])
@@ -580,7 +585,7 @@ if __name__ == "__main__":
 
         # ALGO LOGIC: training.
         if global_step > args.learning_starts:
-            amp_device = "cuda" if device.type == "cuda" else "cpu"
+            amp_device = device.type if device.type in ("cuda", "cpu") else "cpu"
             amp_dtype = torch.bfloat16 if (args.use_bf16 and device.type == "cuda") else torch.float32
 
             for _ in range(args.utd_ratio):
