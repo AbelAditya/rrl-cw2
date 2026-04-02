@@ -21,3 +21,35 @@ $(TARGETS):
 	$(eval INDEX=$(shell python3 -c "print('$(TARGETS)'.split().index('$@'))"))
 	@echo "Scheduling PPO (Lambda=$(G), Epsilon=$(T)) with $(INDEX)s delay..."
 	@sleep $(INDEX) && $(GLFW_ENV) uv run ./agents/ppo.py --env_id='Hopper-v4' --gae_lambda=$(G) --clip_coef=$(T)
+
+
+.PHONY: all run-seed-1 run-seed-2 run-seed-3
+
+PPY        := uv run python
+SCRIPT     := agents/ppo.py
+SCRIPT2    := agents/sac.py
+ENV        := HalfCheetah-v4
+CLIP_COEF  := 0.3
+GAE_LAMBDA := 0.95
+TAU := 0.05
+GAMMA := 0.99
+
+all: run-seed-1-ppo run-seed-2-ppo run-seed-3-ppo run-seed-1-sac run-seed-2-sac run-seed-3-sac
+
+run-seed-1-ppo:
+	$(PPY) $(SCRIPT) --env_id="$(ENV)" --clip_coef=$(CLIP_COEF) --gae_lambda=$(GAE_LAMBDA) --seed=1 --final-run
+
+run-seed-2-ppo:
+	$(PPY) $(SCRIPT) --env_id="$(ENV)" --clip_coef=$(CLIP_COEF) --gae_lambda=$(GAE_LAMBDA) --seed=2 --final-run
+
+run-seed-3-ppo:
+	$(PPY) $(SCRIPT) --env_id="$(ENV)" --clip_coef=$(CLIP_COEF) --gae_lambda=$(GAE_LAMBDA) --seed=3 --final-run
+
+run-seed-1-sac:
+	$(PPY) $(SCRIPT2) --env_id="$(ENV)" --gamma=$(GAMMA) --tau=$(TAU) --seed=1 --final-run
+
+run-seed-1-sac:
+	$(PPY) $(SCRIPT2) --env_id="$(ENV)" --gamma=$(GAMMA) --tau=$(TAU) --seed=2 --final-run
+
+run-seed-1-sac:
+	$(PPY) $(SCRIPT2) --env_id="$(ENV)" --gamma=$(GAMMA) --tau=$(TAU) --seed=3 --final-run
