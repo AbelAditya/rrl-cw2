@@ -82,13 +82,17 @@ Soft Actor Critic (SAC) is an off-policy actor-critic RL algorithm based on the 
 
 Robotics pose specific set of challenges originating from real world setting that make using classical RL techniques infeasible. Methods like PPO and SAC mitigate these challenges quite well making them a good choice for robotics tasks. For instance, PPO and SAC can support large sizes of state space and action space and can generalize well to scenarios that these models have not encountered enough while training. These methods also work quite well with continuous action and state spaces making them an ideal choice for robotics. PPO and SAC both show fair amount of resilience towards noisy inputs through clipping policy update preventing large policy shifts in PPO and entropy regularized objective reducing over reliance on any single observation in SAC.
 
-Even though these methods work generally well and accomodate the above mentioned challenges, it is important to note that they individually work best for certain cases. PPO is feasible and effective in simulation-driven robotics workflows, where large amounts of data can be generated cheaply. In contrast, SAC is more feasible for real-world robotics applications. Its sample efficiency, robustness to noise, and ability to learn from off-policy data make it better suited for physical systems with limited interaction budgets, however it is tough to tune and is rather sensitive to hyperparameter tuning.
+
 
 // ─── Environment Description (6 marks) ─────────────────────────────────────
 
 = Environment Description
 
-- MDP formalism and why specifically half cheetah
+We chose to train in the Ant-v4 and HalfCheetah-v4 environments in MuJoCo gymnasium @mujoco. These were chosen because the represent different complexities of the same locomotion goal. This also makes them directly comparable for benchmarking PPO and SAC. 
+
+The *HalfCheetah* is a 2-dimensional robot consisting of 9 body parts and 8 joints connecting them (including two paws). The goal is to apply torque to the joints to make the cheetah run forward (right) as fast as possible, with a positive reward based on the distance moved forward and a negative reward for moving backward. The cheetah's torso and head are fixed, and torque can only be applied to the other 6 joints over the front and back thighs (which connect to the torso), the shins (which connect to the thighs), and the feet (which connect to the shins).
+
+The *Ant* is a 3D quadruped robot consisting of a torso (free rotational body) with four legs attached to it, where each leg has two body parts. The goal is to coordinate the four legs to move in the forward (right) direction by applying torque to the eight hinges connecting the two body parts of each leg and the torso (nine body parts and eight hinges).
 
 // ─── Hyperparameter Analysis (12 marks) ─────────────────────────────────────
 
@@ -114,11 +118,29 @@ The following values of $epsilon$ were chosen: $epsilon in {0.1,0.2,0.3}$. We ha
       [*$lambda = 1.00$*]
     ),
     [*$epsilon = 0.1$*], [1471.80], [1378.69], [1657.81],
-    [*$epsilon = 0.2$*],  [*4449.39*], [2706.83], [2397.13],
-    [*$epsilon = 0.3$*],   [1131.88], [*4568.06*], [150.90],
+    [*$epsilon = 0.2$*], [*4449.39*], [2706.83], [2397.13],
+    [*$epsilon = 0.3$*], [1131.88], [*4568.06*], [150.90],
   ),
-  caption: [Episode return for different values of $epsilon$ and $lambda$ averaged over 10 episodes],
+  caption: [Average episodic return in HalfCheetah-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using PPO algorithm],
 ) <tab1>
+
+#figure(
+  table(
+    columns: (auto, auto, auto, auto,),
+    align: (left, right, right, right),
+    stroke: 0.5pt,
+    table.header(
+      [], 
+      [*$lambda = 0.90$*], 
+      [*$lambda = 0.95$*], 
+      [*$lambda = 1.00$*]
+    ),
+    [*$epsilon = 0.1$*], [2498.17], [1419.31], [11.57],
+    [*$epsilon = 0.2$*], [2277.72], [3049.39], [107.12],
+    [*$epsilon = 0.3$*], [3204.60], [507.76], [72.97],
+  ),
+  caption: [Average episodic return in Ant-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using PPO algorithm],
+) <tab2>
 
 // - Two sets of $epsilon$ & $lambda$ values have shown good performance with close episodic returns
 //   - $[epsilon = 0.2, lambda = 0.9]$ : Average Episodic Return = 4449.39
@@ -150,15 +172,41 @@ The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Her
     ),
     [*$tau = 0.005$*], [2294.81], [2170.51], [8556.36],
     [*$tau = 0.01$*],  [2371.91], [8707.92], [8552.37],
-    [*$tau = 0.05$*],   [2385.95], [2174.07], [*9418.79*],
+    [*$tau = 0.05$*],  [2385.95], [2174.07], [*9418.79*],
   ),
-  caption: [Average episode return for agents with different $gamma$ and $tau$ configurations averaged over 10 episodes],
-) <tab2>
+  caption: [Average episodic return in HalfCheetah-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using SAC algorithm],
+) <tab3>
+
+#figure(
+  table(
+    columns: (auto, auto, auto, auto,),
+    align: (left, right, right, right),
+    stroke: 0.5pt,
+    table.header(
+      [], 
+      [*$gamma = 0.90$*], 
+      [*$gamma = 0.95$*], 
+      [*$gamma = 0.99$*]
+    ),
+    [*$tau = 0.005$*], [], [], [],
+    [*$tau = 0.01$*],  [], [], [],
+    [*$tau = 0.05$*],  [], [], [],
+  ),
+  caption: [Average episodic return in Ant-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using SAC algorithm],
+) <tab4>
 
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
 = Results and Comparison
 
-discuss structure and approach with sahaj
+Even though these methods work generally well and accomodate the above mentioned challenges, it is important to note that they individually work best for certain cases. PPO is feasible and effective in simulation-driven robotics workflows, where large amounts of data can be generated cheaply. In contrast, SAC is more feasible for real-world robotics applications. Its sample efficiency, robustness to noise, and ability to learn from off-policy data make it better suited for physical systems with limited interaction budgets, however it is tough to tune and is rather sensitive to hyperparameter tuning.
+
+- SAC
+  - *high $gamma$*: locomotion tasks are long horizon planning tasks
+  - *high $tau$*: performed better with incorporating immediate changes
+
+- PPO
+  - *high $epsilon$*: permissive policy update constraint
+  - *mid $lambda$*: exact monte carlo ($lambda=1$) is not good should just lean towards monte carlo 
 
 // ─── Proposed Robotics Task (25 marks) ─────────────────────────────────────
 = Proposed Robotics Task
