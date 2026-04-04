@@ -183,13 +183,13 @@ SAC was an improvement over previously proposed RL methods in terms of sample ef
 
 = Relevance to Robotics
 
-Robotics problem typically involve continuous state and action spaces, delayed reward, noicy observations, and a strong need for stable learning, these make the classical RL approaches impractical. PPO and SAC address serveral of these challenges, which has led to them becoming the baseline algorithms for robotics research.
+Robotics problems typically involve continuous state and action spaces, noisy observations, and a strong need for stable learning that makes classical RL approaches impractical. PPO and SAC address several of these, which has led to them becoming baseline algorithms in robotics research.
 
-PPO is compartively robost to catastropic policy updates because of the clipped objective function contraints and easy to optimize as it an on-policy method. This makes PPO most feasible in simulation-driven workflows (sim-to-real pipelines) where data generation is cheap.
+Both methods natively operate in continuous state and action spaces. PPO parameterises a Gaussian policy from which actions are sampled, while SAC uses a squashed Gaussian to produce bounded continuous actions. This is fundamental to robotics where the agent must output real-valued torques, joint angles, or velocities rather than choosing from a discrete set.
 
-SAC is especially appealing for real-world robotics, where data collection is expensive and limited as, being an off-policy method, it reuses all past experiences via a reply bufffer, making it substanstilly more sample efficient. SAC's stochastic policy and entropy regularisation reduce the over-reliance on any single observation, providing inherent robustness to observation noise.
+PPO is comparatively robust to catastrophic policy updates because of the clipped objective, and is straightforward to implement i.e. there is a single optimiser, no replay buffer, no target networks. This simplicity also makes it easy to parallelise across many simulation instances, making PPO most feasible in simulation-driven workflows (sim-to-real pipelines) where data generation is cheap.
 
-Also, both methods operate in continous state and action space, PPO parameterises a Gaussian policy from which action are sampled, while SAC uses sqashed Gaussian to produce bounded continous actions.
+SAC is especially appealing for real-world robotics, where data collection is expensive and limited. Being an off-policy method, it reuses all past experience via a replay buffer, making it substantially more sample efficient. SAC's entropy-regularised objective also encourages the policy to remain stochastic, reducing over-reliance on any single observation and providing inherent robustness to the sensor noise present in physical systems.
 
 
 // ─── Environment Description (6 marks) ─────────────────────────────────────
