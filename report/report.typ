@@ -1,7 +1,7 @@
 // ─── Page & Typography Setup (NeurIPS-style) ───────────────────────────────────
 #set page(
   paper: "us-letter",
-  margin: (left: 1.5in, right: 1.5in, top: 1.0in, bottom: 1in),
+  margin: (left: 1.5cm, right: 1.5cm, top: 2.7cm, bottom: 2.2cm),
   numbering: "1",
   number-align: center + bottom,
   footer-descent: 25pt - 10pt,
@@ -196,6 +196,8 @@ SAC is especially appealing for real-world robotics, where data collection is ex
 
 = Environment Description
 
+// TODO: We need to mention the MDP formulation!!
+
 We chose to train in the Ant-v4 and HalfCheetah-v4 environments in MuJoCo gymnasium @mujoco. These were chosen because the represent different complexities of the same locomotion goal. This also makes them directly comparable for benchmarking PPO and SAC.
 
 The *HalfCheetah* is a 2-dimensional robot consisting of 9 body parts and 8 joints connecting them (including two paws). The goal is to apply torque to the joints to make the cheetah run forward (right) as fast as possible, with a positive reward based on the distance moved forward and a negative reward for moving backward. The cheetah's torso and head are fixed, and torque can only be applied to the other 6 joints over the front and back thighs (which connect to the torso), the shins (which connect to the thighs), and the feet (which connect to the shins).
@@ -213,6 +215,9 @@ The clip coefficient controls the policy update size, this effectively dictates 
 Tuning lambda controls the bias-variance trade off in estimating the advantage term. As lambda moves from 0 to 1 it cause the shift in advantage estimation being carried out as TD(0) at $lambda = 0$ (high bias) and as Monte Carlo method at $lambda = 1$ (high variance). Temporal Difference introduces bias as it bootstraps value estimates from the immediate next step. Monte Carlo methods are unbiased but inherently show high variance, this originates from variance being accumulated over the length of the episodes. Hence, requires the agent to be run on many episodes for the value estimates to reliably converge.
 
 The following values of $epsilon.alt$ were chosen: $epsilon.alt in {0.1,0.2,0.3}$. We have explored values around the published default @PPO ($epsilon.alt = 0.2$) testing change in agent behaviour under a transition from a strict ($epsilon.alt = 0.1$) to a permissive ($epsilon.alt = 0.3$) policy update constraint. For $lambda$ the following values were chosen: $lambda in {0.9, 0.95, 1.00}$. Similar strategy of exploring around the published defualt @PPO is followed, testing change in agent behaviour as advatage estimation moves from pure monte carlo at $lambda = 1$ to sligthy towards TD(0) at $lambda = 0.90$.
+
+
+// TODO: the captions are wrong
 
 #figure(
   table(
@@ -239,6 +244,11 @@ The following values of $epsilon.alt$ were chosen: $epsilon.alt in {0.1,0.2,0.3}
   ),
   caption: [Average episodic return in Ant-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using PPO algorithm],
 ) <tab2>
+
+
+// TODO: We don't analyze the data, at all. We just say these things happened, we never comment on why is one change better than the other one. Same for SAC.
+// WE should say, which is the best configuration, i know these are highlighted in the table but we need to explain the relation between the hyperparameter, and why this particular results in the best config
+// And what is gamma = 1.0 always failing for PPO.
 
 // - Two sets of $epsilon.alt$ & $lambda$ values have shown good performance with close episodic returns
 //   - $[epsilon.alt = 0.2, lambda = 0.9]$ : Average Episodic Return = 4449.39
@@ -286,6 +296,9 @@ The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Her
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
 = Results and Comparison
 
+// TODO: This needs much more work, it is worth 20 marks.
+// missing subsections: sample efficiancy, training stablity,  wall-clock time, reliability across seeds and qualitative policy behaviour. We only talk about hyperparameters and nothing else.
+
 We found a general trend of decreasing performance while shifting from HalfCheetah-v4 environment to Ant-v4 environment. This can be attributed to an increase in complexity for achieving locomotion. [Ant-v4 more complex because more joints to control $6->8$, there is also a complexity of maintaining a heading or building a heading agnostic locomotion strategy.]. SAC consistently outperformed PPO across both environments; this has been discussed in detail later in this section.
 
 $lambda = 0.95$ & $epsilon.alt = 0.3$
@@ -293,7 +306,8 @@ We got the best performance from *PPO* for *HalfCheetah-v4* environment using *$
 
 - comparatively SAC gave better performance than PPO
 
-Even though these methods work generally well and accomodate the above mentioned challenges, it is important to note that they individually work best for certain cases. PPO is feasible and effective in simulation-driven robotics workflows, where large amounts of data can be generated cheaply. In contrast, SAC is more feasible for real-world robotics applications. Its sample efficiency, robustness to noise, and ability to learn from off-policy data make it better suited for physical systems with limited interaction budgets, however it is tough to tune and is rather sensitive to hyperparameter tuning.
+// NOTE: We don't need to mention this here, we cover the same thing in Relevance section
+// Even though these methods work generally well and accomodate the above mentioned challenges, it is important to note that they individually work best for certain cases. PPO is feasible and effective in simulation-driven robotics workflows, where large amounts of data can be generated cheaply. In contrast, SAC is more feasible for real-world robotics applications. Its sample efficiency, robustness to noise, and ability to learn from off-policy data make it better suited for physical systems with limited interaction budgets, however it is tough to tune and is rather sensitive to hyperparameter tuning.
 
 - SAC
   - *high $gamma$*: locomotion tasks are long horizon planning tasks
