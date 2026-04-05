@@ -143,41 +143,53 @@ $ L^"VF" (phi.alt) = 1/(|cal(B)|) sum_(t) (V_phi.alt (s_t) - R_t)^2 $
 This lets the critic learn a smoother estimate of the expected future return, which in turn improves the quality of the advantage estimates used by the actor. In practice, PPO collects a rollout of 2048 steps, computes GAE over the entire buffer, then performs 10 epochs of minibatch gradient descent, recomputing policy log-probabilities on each minibatch and updating both actor and critic. The importance-sampling ratio corrects for the fact that by later epochs, the policy has drifted from the one that collected the data, and the clipping mechanism ensures this drift remains bounded.
 
 
-Soft Actor Critic (SAC) is an off-policy actor-critic RL algorithm based on the maximum entropy reinforcement leanring framework. The soft actor-critic algorithm incorporates three key ingredients: an actor-critic architecture with separate policy and value function networks, an off-policy formulation that enables reuse of previously collected data for efficiency, and entropy maximization to enable stability and exploration @SAC. It consists of an actor trying arrive at an optimal policy and a critic that evaluates the generated policy. Both actor critic tend to get better with training, critic building more accurate estimations of state value and Q functions and the actor generating policies with higher returns. The algorithm maintains four different set of weights as described ahead: $psi$ for a soft value function approximator, *$V_psi$* that essentially estimates state value functions of various states, $theta$ for Q value network or critic, *$Q_theta$*, that essentially estimates Q-function values for various state action pairs, $phi.alt$ for the policy network or actor,*$pi_phi.alt$*, that generates policies and finally $overline(psi)$ which represents a target value function *$V_overline(psi)$* and is updated as a moving average of the weights of the soft value function approximator $V_psi$. The following loss functions were proposed in the original paper and the weights are updated by minimising over the mentioned loss functions.
+*Soft Actor Critic (SAC)* is an off-policy actor-critic RL algorithm based on the maximum entropy reinforcement leanring framework. The soft actor-critic algorithm incorporates three key ingredients: an actor-critic architecture with separate policy and value function networks, an off-policy formulation that enables reuse of previously collected data for efficiency, and entropy maximization to enable stability and exploration @SAC. 
 
+The entropy maximization framework proposes the use of an entropy augmented return objective:
+$
+  V(s_t) = E_(a_t~pi)[Q(s_t, a_t) + alpha H(pi(dot|s_t)))]
+$ 
 
-// TODO: I don't get what these equations mean? It is more like we are just writing the equations down but not really explain our intuation behind them.
+This encourages the policy to remain sotchastic, promoting exploration and robustness while still optimising for high reward trajectories. The temperature parameter $alpha$ controls the trade off between reward maximization and entropy, with a higher $alpha$ favouring stochasticity and a lower $alpha$ favouring determinism.
+
+The theory from the orginal paper proposes that we have a network for critic ($Q_psi$) and a network for actor ($pi_phi$), in addition to this it was also proposed to have an extra soft value function approximator as it was found to improve training stability. However, we keep the code implementation simple and only implement a critic and an actor.
+
+For training the Q-function network we use the following loss: 
+$
+  J_(Q)(psi) = E_((s_t,a_t) ~ D)[1/2(Q_(psi)(s_t,a_t) - hat(Q)(s_t,a_t))^2]  "where",\
+  hat(Q)(s_t,a_t) = r + gamma (Q_(overline(psi))(s_(t+1),a') - alpha log pi_(phi)(a'|s_(t+1))) ; a' ~ pi_(phi)(dot|s_t)
+
+$<critic_loss_SAC>
+
+The $overline(psi)$ is a set of target value network weights that are calculated as a moving average of the weights of the Q-function network ($psi$).
+$
+  overline(psi)_(t'+1) = tau psi_t' + (1-tau) overline(psi)_t'
+$
+Here, $tau$ is the polyak averaging constant and controls how significantly changes in $psi$ influence the change in $overline(psi)$.
+
+A neat little trick that we do employ in the code implementation (also proposed in the original paper) is to have two different set of critic weights ${psi_1, psi_2}$ that are trained simultaneously. We then feed $min(Q_(psi_1)(s_t,a_t),Q_(psi_2)(s_t,a_t))$ and $min(Q_(overline(psi)_1)(s_t,a_t),Q_(overline(psi)_2)(s_t,a_t))$ into respective loss terms to mitigate positive bias. Therefore, @critic_loss_SAC can be rewritten as :-
 
 $
-  & J_(V)(psi) = E_(s_t ~ D)[1/2(V_(psi)(s_t) - E_(a_t ~ pi_phi.alt)[Q_(theta)(s_t, a_t) - log pi(a_t|s_t)])^2] \
-$ <eq1>
+  J_(Q)(psi) = E_((s_t,a_t) ~ D)[1/2(Q_(psi_i)(s_t,a_t) - hat(Q)(s_t,a_t))^2]  "where",\
+  hat(Q)(s_t,a_t) = r + gamma (attach(min, b:i={1,2})(Q_(overline(psi_i))(s_(t+1),a')) - alpha log pi_(phi)(a'|s_(t+1))) ; a' ~ pi_(phi)(dot|s_t)
+
+$<critic_loss_code_SAC>
+
+We train the actor using following loss: 
 $
-  & J_(Q)(theta)= E_((s_t,a_t)~D)[1/2(Q_(theta)(s_t,a_t) - hat(Q)(s_t,a_t))^2] "where", \
-  & hat(Q)(s_t,a_t) = r(s_t,a_t) + gamma E_(s_(t+1) ~ p)[V_(overline(psi))(s_(t+1))] \
-$ <eq2>
+  J_(pi)(phi) = E_(a ~ pi_phi)[alpha log pi_(phi)(a_phi|s_t) - attach(min, b:i={1,2})(Q_(psi_i)(a_phi,s_t))]
+$
+Here we employ the reparameterization trick to reparameterize actions $a$ as $a_phi (s,xi) "where" xi ~ N(0,I)$ making $a_phi$ a deterministic function of $phi "and" xi$ allowing us to push the gradient through the sampling operation. 
+
+Additionally, instead of treating $alpha$ as a fixed parameter we update it along with the other parameters.
 
 $
-  & J_(pi)(phi.alt) = E_(s_t ~ D,epsilon_t ~ N)[log pi_(phi.alt)(f_(phi.alt)(epsilon_t;s_t)|s_t) - Q_(theta)(s_t,f(epsilon_t;s_t))]
-$ <eq3>
-
-$
-  & overline(psi) <- tau psi + (1-tau)overline(psi)
-$ <eq4>
-
-However in the code implementation we don't maintain a separate soft value network and directly train $psi$ on critic losses replacing $theta$ in @eq2. Essentially @eq2 can be rewritten as the following:-
-$
-  & J_(Q)(psi)= E_((s_t,a_t)~D)[1/2(Q_(psi)(s_t,a_t) - hat(Q)(s_t,a_t))^2] "where", \
-  & hat(Q)(s_t,a_t) = r(s_t,a_t) + gamma E_(s_(t+1) ~ p)[V_(overline(psi))(s_(t+1))] \
+  J(alpha) = E_(a ~ pi_phi)[- alpha (log pi_phi (a|s) + overline(HH))]
 $
 
-The target netwrok weights $overline(psi)$ are now calculated directly as a moving average of the critic weights.
-
-A neat little trick that was proposed in the original paper and is also a part of the code implementation that is worth noting is that, we actually train two sets of Q-function network weights ${psi_1, psi_2}$ that are trained independently to mitigate positive bias. The minimum of the two Q-functions is then utilised in @eq1 and @eq3.
-
+Using the above mentioned automatic entropy tuning we manage to remove a hyperparameter to optimize for, rather it now adapts to how well the policy is performing, $alpha$ decreases as the policy is improving allowing the policy to exploit more confidently.
 
 SAC was an improvement over previously proposed RL methods in terms of sample efficiency as it is an off-policy method and stability to convergence and sensitivity to hyperparameters which was notoriously tough to achieve with off-policy model free methods.
-
-// TODO: may choose to include relevant equations
 
 // ─── Relevance to Robotics (3 marks)─────────────────────────────────────
 
@@ -217,8 +229,6 @@ Tuning lambda controls the bias-variance trade off in estimating the advantage t
 The following values of $epsilon.alt$ were chosen: $epsilon.alt in {0.1,0.2,0.3}$. We have explored values around the published default @PPO ($epsilon.alt = 0.2$) testing change in agent behaviour under a transition from a strict ($epsilon.alt = 0.1$) to a permissive ($epsilon.alt = 0.3$) policy update constraint. For $lambda$ the following values were chosen: $lambda in {0.9, 0.95, 1.00}$. Similar strategy of exploring around the published defualt @PPO is followed, testing change in agent behaviour as advatage estimation moves from pure monte carlo at $lambda = 1$ to sligthy towards TD(0) at $lambda = 0.90$.
 
 
-// TODO: the captions are wrong
-
 #figure(
   table(
     columns: (auto, auto, auto, auto),
@@ -229,7 +239,7 @@ The following values of $epsilon.alt$ were chosen: $epsilon.alt in {0.1,0.2,0.3}
     [*$epsilon = 0.2$*], [4449.39], [2706.83], [2397.13],
     [*$epsilon = 0.3$*], [1131.88], [*4568.06*], [150.90],
   ),
-  caption: [Average episodic return in HalfCheetah-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using PPO algorithm],
+  caption: [Average episodic return in HalfCheetah-v4 environment with different $epsilon$ and $lambda$ configurations averaged over 10 episodes using PPO algorithm],
 ) <tab1>
 
 #figure(
@@ -242,7 +252,7 @@ The following values of $epsilon.alt$ were chosen: $epsilon.alt in {0.1,0.2,0.3}
     [*$epsilon.alt = 0.2$*], [2277.72], [3049.39], [107.12],
     [*$epsilon.alt = 0.3$*], [*3204.60*], [507.76], [72.97],
   ),
-  caption: [Average episodic return in Ant-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using PPO algorithm],
+  caption: [Average episodic return in Ant-v4 environment with different $epsilon$ and $lambda$ configurations averaged over 10 episodes using PPO algorithm],
 ) <tab2>
 
 
