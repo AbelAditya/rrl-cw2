@@ -214,6 +214,29 @@ We chose to train in the Ant-v4 and HalfCheetah-v4 environments in MuJoCo gymnas
 
 The *HalfCheetah* is a 2-dimensional robot consisting of 9 body parts and 8 joints connecting them (including two paws). The goal is to apply torque to the joints to make the cheetah run forward (right) as fast as possible, with a positive reward based on the distance moved forward and a negative reward for moving backward. The cheetah's torso and head are fixed, and torque can only be applied to the other 6 joints over the front and back thighs (which connect to the torso), the shins (which connect to the thighs), and the feet (which connect to the shins).
 
+*MDP Formulation for HalpCheetah-v4*:-
+
+$S subset.eq RR^17$\
+- Torso:
+  - z-coordinate of the front tip, $z$
+  - angle of the front tip $theta$
+- Torso velocities
+  - velocity of x-coordinate of the front tip$dot(x)$
+  - velocity of z-coordinate of the front tip$dot(z)$
+  - angular velocity of the front tip $dot(theta)$
+- Limb
+  - Front thigh, shin and foot
+  - Hind thigh, shin and foot
+- Limb velocities
+  - angular velocity of front thigh, shin and foot
+  - angular velocity of hind thigh, shin and foot
+\
+$A subset.eq [-1,1]^6$
+- torque on 6 joints 
+  - 3 in hind leg 
+  - 3 in front leg
+
+
 The *Ant* is a 3D quadruped robot consisting of a torso (free rotational body) with four legs attached to it, where each leg has two body parts. The goal is to coordinate the four legs to move in the forward (right) direction by applying torque to the eight hinges connecting the two body parts of each leg and the torso (nine body parts and eight hinges).
 
 // ─── Hyperparameter Analysis (12 marks) ─────────────────────────────────────
