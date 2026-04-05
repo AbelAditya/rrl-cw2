@@ -146,7 +146,7 @@ This lets the critic learn a smoother estimate of the expected future return, wh
 Soft Actor Critic (SAC) is an off-policy actor-critic RL algorithm based on the maximum entropy reinforcement leanring framework. The soft actor-critic algorithm incorporates three key ingredients: an actor-critic architecture with separate policy and value function networks, an off-policy formulation that enables reuse of previously collected data for efficiency, and entropy maximization to enable stability and exploration @SAC. It consists of an actor trying arrive at an optimal policy and a critic that evaluates the generated policy. Both actor critic tend to get better with training, critic building more accurate estimations of state value and Q functions and the actor generating policies with higher returns. The algorithm maintains four different set of weights as described ahead: $psi$ for a soft value function approximator, *$V_psi$* that essentially estimates state value functions of various states, $theta$ for Q value network or critic, *$Q_theta$*, that essentially estimates Q-function values for various state action pairs, $phi.alt$ for the policy network or actor,*$pi_phi.alt$*, that generates policies and finally $overline(psi)$ which represents a target value function *$V_overline(psi)$* and is updated as a moving average of the weights of the soft value function approximator $V_psi$. The following loss functions were proposed in the original paper and the weights are updated by minimising over the mentioned loss functions.
 
 
-// TODO: I don't get what these equations mean? It is more like we are just writing the equations down but not really explain our intuation behind them. 
+// TODO: I don't get what these equations mean? It is more like we are just writing the equations down but not really explain our intuation behind them.
 
 $
   & J_(V)(psi) = E_(s_t ~ D)[1/2(V_(psi)(s_t) - E_(a_t ~ pi_phi.alt)[Q_(theta)(s_t, a_t) - log pi(a_t|s_t)])^2] \
@@ -285,15 +285,10 @@ The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Her
     columns: (auto, auto, auto, auto),
     align: (left, right, right, right),
     stroke: 0.5pt,
-    table.header(
-      [], 
-      [*$gamma = 0.90$*], 
-      [*$gamma = 0.95$*], 
-      [*$gamma = 0.99$*]
-    ),
+    table.header([], [*$gamma = 0.90$*], [*$gamma = 0.95$*], [*$gamma = 0.99$*]),
     [*$tau = 0.005$*], [810.21], [2272.73], [4823.77],
-    [*$tau = 0.01$*],  [1102.83], [1572.79], [*5369.59*],
-    [*$tau = 0.05$*],  [809.55], [1369.41], [3276.02],
+    [*$tau = 0.01$*], [1102.83], [1572.79], [*5369.59*],
+    [*$tau = 0.05$*], [809.55], [1369.41], [3276.02],
   ),
   caption: [Average episodic return in Ant-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using SAC algorithm],
 ) <tab4>
@@ -306,7 +301,7 @@ The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Her
 
 
 
-We found a general trend of decreasing performance while shifting from HalfCheetah-v4 environment to Ant-v4 environment. This can be attributed to an increase in complexity for achieving locomotion. [Ant-v4 more complex because more joints to control $6->8$, there is also a complexity of maintaining a heading or building a heading agnostic locomotion strategy.]. SAC consistently outperformed PPO across both environments; this has been discussed in detail later in this section. 
+We found a general trend of decreasing performance while shifting from HalfCheetah-v4 environment to Ant-v4 environment. This can be attributed to an increase in complexity for achieving locomotion. [Ant-v4 more complex because more joints to control $6->8$, there is also a complexity of maintaining a heading or building a heading agnostic locomotion strategy.]. SAC consistently outperformed PPO across both environments; this has been discussed in detail later in this section.
 // TODO: This needs much more work, it is worth 20 marks.
 // missing subsections: sample efficiancy, training stablity,  wall-clock time, reliability across seeds and qualitative policy behaviour. We only talk about hyperparameters and nothing else.
 
@@ -334,6 +329,16 @@ Even though these methods work generally well and accomodate the above mentioned
 // ─── Proposed Robotics Task (25 marks) ─────────────────────────────────────
 = Proposed Robotics Task
 
-- study POMDP
+The 2026 Formula 1 regulations introduced a fundamental shift in power unit architecture: roughly half the car's power now comes from the electrical deployment via the upgraded MGU-K (tripled the capacity of the last year to 350kW), and the MGU-H is removed entirely. However, battery capacity is stil the same 4MJ, this means that the battery is charged and depleted multiple times during the lap. This makes within-lap energy management a continous, high-freqency control problem, the driver must constantly decide when to deploy battery energy, when to harvest it (basically slowing down to charge up the battery/super clipping), and to coordinate this with new active aerodynamic, because lifting off turns off the active aero more harvesting but less straight line speed. We propse framing this within-lap energy and pace management task as a POMDP, because most of the important variables critical to the decision making are hidden from the agent. Tyre degradation is only indirectly observed through surface temperature, yet internal rubber state can collapse suddenly (the "type cliff"). Competitor energy levels and strategy are invisible, the agent can see their lap times and gaps but their battery state or pit strategy. Track grip evolves each lap as rubber is laid down, but cannot be measured directly, wind and weather condition affect the grip levels. Battery health degrade over a race distance, which cannot be fully captured.
+
+The true state $s$ would include the car's exact postion, velocity, battery state, tyre condition and type, fuel load, aerodynamic state, track grip, weather effects, and the hidden state of the rival's cars. The observation $o$ would consist of car telemetry available to the engineers and driver, such as speed, throttle and brake traces, battery charge, type temperature and presures, lap and sector time, time gaps to the nearby cars and overtake availability, active aero deployments, and noisy weather forecast. The action $a in RR^3$ is continous: an energy deployment level (harvest to full deploy), a target pace delta (push v/s conserve) and harvesting intensity (trading lap times for energy but also disables active aero). The reward function combine sector times relative to target sector pace, and energy management penalty for depleting the battery at critical momemt (e.g. end of the straights) and tyre preservation.
+
+We would choose SAC for this task. Our experimments showed that high $gamma$ was dominant factor for SAC's performance. When $gamma = 0.90$, the agent could "see" about 10 step into the future $1 slash (1 - gamma) approx 10$ and the performance was stuck around $2300$ regardless of what we did with $tau$. But when $gamma = 0.99$ (effective horizon of \~100 steps) the performance jumped to 8500-9400. The agent needed to reason about the long chain cause and effect, and locomotion requires these long horizons. On top of that within-lap energy mangement involves dozes of coupled deployments decisions per lap whose consequences computer over subsequent sections and laps. A deployment burst to overtake now might make you vulnerable to few corners later, and if a opponent is within an second of you they will have additional power to deploy as well.
+
+SAC's entropy-regularised objective suits this task because there is not single correct deployement strategy, the optimial profile would depend on competitor behaviour, tyre state, and track postion, all of which are uncertain, so a stochastic policy that maintains viable strategies is more robust than a single determinstic one. PPO would only be attractive with access to massively parallel simulation, whereas high fidelity race simuation involving tyre theromodymaics, aero mode interactions, and competitor AI is too expensive per rollout for on-policy data gathering. 
+
+Key challenges with the approach is sim-to-real gap (tyre models are notoriously unreliable, even Pirelli's tyre models often misjudge the degradation speed), multi-agent non-stationarity (competitor strategies are adversarial and partially observable, but SAC and even PPO assumes stationary environments) and reward shaping across competiting objectives (trying to optimize race position, lap time, energy efficiency & tyre preservation and these objectives directly conflict with each other). 
+
+Having said everything, RL may not be the ideal approach in isolation. Classical optimzation techiniques are excellent when you have a good model and well defined contraints. F1 teams already use these for pit-stop strategies, pit-stop timing a relatively low-frequency decision (2-3 times per race), the option space is discrete and enumeralble (pit on lap 15, 16, 17... with soft, medium or hard tyres) and the models, though still inperfect, are good enough of this level of abstraction. But when the classical techniques struggle with high-freqency, continous, reactive decision making that the 2026 reguations demand. "How much energy should I deploy on the second straight given that the car behind just closed to within 1.2 seconds and they have a 3 lap tyre advantage?" this is not a question that the we can pre-compute, the state-space is too large, decision are too frequent and the interation between energy, tyres, and competitor behaviour are too complex for hand-crafted heuristics to capture optimality. This is excatly where RL excels: learning a reactive policy through experience that maps high dimensional observations to continous action spaces. _An hybrid approch_ bridges the gap between this boundary, classical methods for strategic decisions with RL policy handling continous within-lap energy deployment decision initialised by _Imitation Learning_. Rather than starting from random exploartion, we can initialize the RL policy by leanring from historical data, how drivers and race engineers managed the previous races and avoid dangerous random explorations. The policy start by mimicking human experts behaviour and then improves beyond it through RL (same as AlphaGo).
 
 #bibliography("ref.bib", title: "References")
