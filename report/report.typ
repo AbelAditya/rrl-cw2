@@ -389,10 +389,24 @@ The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Her
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
 = Results and Comparison
 
-- Comment on sample efficiency, training stability, wall-clock training time, and reliability across seeds; This can be conclusion para
+- Comment on sample efficiency, training stability, wall-clock training time, and reliability across seeds; 
 - Also comment on the qualitative behaviour of the learned policies: what do they look like? Do you think they have adequately solved the task? Why or why not?
 
+- *Sample efficiency*: SAC higher 
+  - theoretically, since SAC is an off policy method 
+  - SAC was only trained over 450K time steps as opposed to PPO's 1 million timesteps still SAC shows better performance 
 
+- Training stability:
+
+- wall clock training time: SAC higher
+  - SAC 
+    - half cheetah: 2 hrs
+    - ant: 1hr 40min
+  - PPO
+    - ant: 1hr 10 min
+    - half cheetah: 1hr 
+
+  - from fig we can tell ppo shows better stability across seeds
 
 We found a general trend of decreasing performance while shifting from HalfCheetah-v4 environment to Ant-v4 environment. This can be attributed to an increase in complexity for achieving locomotion. [Ant-v4 more complex because more joints to control $6->8$, there is also a complexity of maintaining a heading or building a heading agnostic locomotion strategy.]. SAC consistently outperformed PPO across both environments; this has been discussed in detail later in this section.
 // TODO: This needs much more work, it is worth 20 marks.
