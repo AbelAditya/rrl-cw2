@@ -214,30 +214,90 @@ We chose to train in the Ant-v4 and HalfCheetah-v4 environments in MuJoCo gymnas
 
 The *HalfCheetah* is a 2-dimensional robot consisting of 9 body parts and 8 joints connecting them (including two paws). The goal is to apply torque to the joints to make the cheetah run forward (right) as fast as possible, with a positive reward based on the distance moved forward and a negative reward for moving backward. The cheetah's torso and head are fixed, and torque can only be applied to the other 6 joints over the front and back thighs (which connect to the torso), the shins (which connect to the thighs), and the feet (which connect to the shins).
 
-*MDP Formulation for HalpCheetah-v4*:-
+*MDP Formulation for HalfCheetah-v4*:-
 
-$S subset.eq RR^17$\
-- Torso:
-  - z-coordinate of the front tip, $z$
-  - angle of the front tip $theta$
-- Torso velocities
-  - velocity of x-coordinate of the front tip$dot(x)$
-  - velocity of z-coordinate of the front tip$dot(z)$
-  - angular velocity of the front tip $dot(theta)$
-- Limb
-  - Front thigh, shin and foot
-  - Hind thigh, shin and foot
-- Limb velocities
-  - angular velocity of front thigh, shin and foot
-  - angular velocity of hind thigh, shin and foot
-\
-$A subset.eq [-1,1]^6$
+#let obs_space_hc = [*$S subset.eq RR^17$*\
+- Positional observations ($q_"pos"$, 8 elements):
+  - $z$: z-coordinate of the front tip (torso height)
+  - $theta$: angle of the front tip
+  - Angular positions of: back thigh, back shin, back foot, front thigh, front shin, front foot
+- Velocity observations ($q_"vel"$, 9 elements):
+  - $dot(x)$: velocity of the x-coordinate of the front tip
+  - $dot(z)$: velocity of the z-coordinate of the front tip
+  - $dot(theta)$: angular velocity of the front tip
+  - Angular velocities of: back thigh, back shin, back foot, front thigh, front shin, front foot
+  ]
+
+#let action_space_hc = [*$A subset.eq [-1,1]^6$*
 - torque on 6 joints 
   - 3 in hind leg 
-  - 3 in front leg
+  - 3 in front leg]
+
+#let term_condn_hc = [The Half Cheetah never terminates.]
+
+#let reward_fn_hc = [
+  *Reward* = _forward_reward_ - _ctrl_cost_
+  - *Forward Reward*: reward for moving forward $w_"forward" times (d x)/(d t)$
+  - *Control Cost*: a negative reward to penalize the Half Cheetah for taking actions that are too large $w_"control" times attach(||"action"||,tr:2,br:2)$
+]
+
+#figure(
+  table(
+    columns: (auto, auto, auto, auto),
+    align: (left, left, left, left),
+    stroke: 0.5pt,
+    table.header([*Observation Space*], [*Action Space*], [*Termination Condition*], [*Reward Function*]),
+    obs_space_hc, action_space_hc, term_condn_hc, reward_fn_hc
+  ),
+  caption: [MDP formulation for HalfCheetah-v4],
+) <mdp_form_hc>
 
 
 The *Ant* is a 3D quadruped robot consisting of a torso (free rotational body) with four legs attached to it, where each leg has two body parts. The goal is to coordinate the four legs to move in the forward (right) direction by applying torque to the eight hinges connecting the two body parts of each leg and the torso (nine body parts and eight hinges).
+
+*MDP Formulation for Ant-v4*:-
+
+#let obs_space_a = [
+  *$S subset.eq RR^27$*
+  - Positional observations ($q_"pos"$, 13 elements):
+    - $z$: z-coordinate of the torso
+    - $bold(q)_"orient" in RR^4$: orientation of the torso as a quaternion $(w, x, y, z)$
+    - Angular positions of 8 joints: hip and ankle joints for each of the 4 legs
+  - Velocity observations ($q_"vel"$, 14 elements):
+    - $dot(x), dot(y), dot(z)$: translational velocities of the torso
+    - $omega_x, omega_y, omega_z$: angular velocities of the torso
+    - Angular velocities of 8 joints: hip and ankle joints for each of the 4 legs
+]
+
+#let action_space_a = [
+  *$A subset.eq [-1,1]^8$*\
+  - Torque on 8 joints
+    - 2 joints per limb
+]
+
+#let term_condn_a = [
+  - Any of the state space values is no longer finite.
+  - The z-coordinate of the torso (the height) is not in the closed interval given by the healthy_z_range argument (default is $[0.2,1.0]$).
+]
+
+#let reward_fn_a = [
+  *Reward* = _healthy_reward_ + _forward_reward_ - _ctrl_cost_ - _contact_cost_
+  - *Healthy Reward*: every timestep that the Ant is healthy (defined by termination conditions), it gets a reward of fixed value _healthy_reward_ (default is 1).
+  - *Forward Reward*: reward for moving forward $w_"forward" times (d x)/(d t)$
+  - *Control Cost*:A negative reward to penalize the Ant for taking actions that are too large $w_"control" times attach(||"action"||,tr:2,br:2)$
+  - *Contact Cost*: a negative reward to penalize the Ant if the external contact forces are too large $w_"contact" times attach(||F_"contact"||,tr: 2, br: 2)$
+]
+
+#figure(
+  table(
+    columns: (auto, auto, auto, auto),
+    align: (left, left, left, left),
+    stroke: 0.5pt,
+    table.header([*Observation Space*], [*Action Space*], [*Termination Condition*], [*Reward Function*]),
+    obs_space_a, action_space_a, term_condn_a, reward_fn_a
+  ),
+  caption: [MDP formulation for Ant-v4],
+) <mdp_form_hc>
 
 // ─── Hyperparameter Analysis (12 marks) ─────────────────────────────────────
 
