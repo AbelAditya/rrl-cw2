@@ -325,6 +325,8 @@ The following values of $epsilon.alt$ were chosen: $epsilon.alt in {0.1,0.2,0.3}
   caption: [Average episodic return in HalfCheetah-v4 environment with different $epsilon$ and $lambda$ configurations averaged over 10 episodes using PPO algorithm],
 ) <tab1>
 
+  Here we observed that we got the best performance at $epsilon = 0.3 "and" lambda = 0.95$. A permissive policy update strategy works best here because the HalfCheetah doesn't terminate therefore there aren't any catastrophic consequences to making large policy updates. Moreover, $lambda=0.95$ works better than full Monte Carlo ($lambda=1$) because $lambda=0.95$ provides better variance control as it would discount variance just enough to have stable advantage estimates contrary to the full Monte Carlo estimation where it would just accumulate over the entire episode length, additionally it shows resilience towards errors in later rewards whereas in the case of $lambda=1$ they would propagate all the way back through the return. 
+
 #figure(
   table(
     columns: (auto, auto, auto, auto),
@@ -338,15 +340,7 @@ The following values of $epsilon.alt$ were chosen: $epsilon.alt in {0.1,0.2,0.3}
   caption: [Average episodic return in Ant-v4 environment with different $epsilon$ and $lambda$ configurations averaged over 10 episodes using PPO algorithm],
 ) <tab2>
 
-
-// TODO: We don't analyze the data, at all. We just say these things happened, we never comment on why is one change better than the other one. Same for SAC.
-// WE should say, which is the best configuration, i know these are highlighted in the table but we need to explain the relation between the hyperparameter, and why this particular results in the best config
-// And what is gamma = 1.0 always failing for PPO.
-
-// - Two sets of $epsilon.alt$ & $lambda$ values have shown good performance with close episodic returns
-//   - $[epsilon.alt = 0.2, lambda = 0.9]$ : Average Episodic Return = 4449.39
-//   -  $[epsilon.alt = 0.3, lambda = 0.95]$ : Average Episodic Return = 4568.06
-
+Here we found $epsilon=0.3 "and" lambda = 0.90$ showed the best performance. $epsilon=0.3$ still performs the best despite the possibility of destabilisation because under the limited time budget the speed benefit of larger updates outweigh the occasional destabilisation costs, it is a bigger risk to be moving too slowly and not reaching the optimum. Moving further away from Monte Carlo estimation has proven to be benefical because of the following reasons, firstly, now the survival reward is dense and immediate (the agent receives a +1 reward for every healthy timestep) so short horizon estimation of TD(0) actually captures useful signals, secondly, now the agent is controlling 8 joints across 4 limbs so the estimations are more susceptible to noise therefore having a harder discount improves performance and lastly, with shorter episodes Monte Carlo methods become unreliable since a successful run of 1000 timesteps is not guaranteed.  
 
 = SAC Hyperparameter Tuning
 
@@ -373,6 +367,8 @@ The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Her
   caption: [Average episodic return in HalfCheetah-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using SAC algorithm],
 ) <tab3>
 
+We get the best performance from $gamma = 0.99 "and" tau = 0.05$. The domination of $gamma=0.99$ is the clearest signal as it outperforms all other values of $lambda$ for every value of $tau$, this is because the locomotion goal that the HalfCheetah-v4 environment poses requires sustained coordinated joint motion over many timesteps   i.e. its a long horizon problem hence a high $gamma=0.99$ ensures that future rewards are given significant weight. $tau=0.05$ dominates because HalfCheetah-v4 has smooth and relatively stationery reward gradients i.e. Q-function don't change dramatically between updates hence can afford to update more agressively.
+
 #figure(
   table(
     columns: (auto, auto, auto, auto),
@@ -386,8 +382,12 @@ The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Her
   caption: [Average episodic return in Ant-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using SAC algorithm],
 ) <tab4>
 
+We find that $gamma=0.99 "and" tau=0.01$. $gamma=0.99$ dominates again for the same reasons discussed previously. However, and interesting thing to notice is that here $tau=0.01$ gives a better performance as opposed to $tau=0.05$ which showed the best performance for HalfCheetah. This because the Q-function landscape now shifts more rapidly, hence agressive updte strategies ($tau=0.05$) introduce instability. Early termination causes sharp discontinuities in Q-function values near termination states and a fast moving target network would amplify these rather than smooth them over. Therefore, $tau=0.01$ strikes a balance between tracking changes fast enough and remaining conservative enought to avoid instability.
+
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
-= Results and Comparison
+= Results and Comparison\
+
+
 
 - Comment on sample efficiency, training stability, wall-clock training time, and reliability across seeds; 
 - Also comment on the qualitative behaviour of the learned policies: what do they look like? Do you think they have adequately solved the task? Why or why not?
