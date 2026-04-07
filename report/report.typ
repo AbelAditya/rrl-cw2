@@ -273,7 +273,6 @@ In terms of training stability and reliability across seeds, PPO maintains a con
 
 Despite fewer timesteps, SAC required more wall-clock time (2hr vs 1hr on HalfCheetah, 1hr 40min vs 1hr 10min on Ant) due to heavier per-step computation: replay buffer sampling and multiple network updates versus PPO's amortised batch updates. SAC is preferable when environment interactions are the bottleneck; PPO is preferable when fast simulation makes data collection cheap.
 
-
 // #figure(
 //   grid(
 //     columns: 2,
@@ -287,8 +286,6 @@ Despite fewer timesteps, SAC required more wall-clock time (2hr vs 1hr on HalfCh
 // )
 
 In the case of HalfCheetah both policies have managed to learn almost the same thing. However, while observing both side by side one can tell that the policy learnt by SAC seems more natural, more like an actual animal one might spot running somewhere. It is also worth noting that the SAC policy is produces a much faster locomotion compared to the PPO policy. Looking at a render of the policy learnt under PPO, the agent's motion isn't very smooth with slight erratic jumps in between, however the render of a policy learnt under SAC generated more fluid motions.
-
-
 
 Looking at what the best policy under SAC has learned is rather peculiar. Instead on using all four limbs to move as one would expect to see taking inspiration from what is found in nature, the policy has learned to use two limbs to just stabilise itself and the other two limbs to push forward. It's motion can almost be described as a rowing motion, with two limbs staying almost stationary and effectively only using two limbs to move. On the contrary to this, we find that PPO has learned a policy that involves are more cohesive use of all the limbs. You see a lot more contribution of all the limbs but the SAC policy results in much faster locomotion. Another interesting thing to notice is that both have ended choosing to maintain a specific orientation, as in while moving both policies (SAC and PPO) tend to correct their body orientaiton with respect to the direction of motion as if having a prefered orientation, similar to how humans face the direction the move in while walking instead of say walking sideways. 
 
@@ -305,6 +302,7 @@ Looking at what the best policy under SAC has learned is rather peculiar. Instea
     Plots of final runs across $"seed"={1,2,3}$ for both HalfCheetah-v4 and Ant-v4 environments
   ]
 )
+
 For HalfCheetah, both algorithms adequately solve the task. Both achieve fast directed locomotion, with SAC producing notably more fluid motion than PPO's occasionally erratic motion. For Ant, adequate task completion is less convincing. While both achieve forward locomotion, the learned policies are mechanically peculiar. SAC's two-limb rowing motion and PPO's uncoordinated gait both feel far from a natural solution. SAC in particular appears to be exploiting the reward function rather than learning the intended behaviour, finding a local optimum that satisfies the objective while ignoring two limbs entirely. This suggests both algorithms, given the training budgets used, have found reward-maximising shortcuts rather than genuinely solving the task.
 
 // ─── Proposed Robotics Task (25 marks) ─────────────────────────────────────
@@ -322,4 +320,5 @@ Key challenges with this approach are the sim-to-real gap, multi-agent non-stati
 
 That said, RL may not be the ideal approach in isolation. Classical optimisation techniques are excellent when you have a good model and well-defined constraints. F1 teams already use these for pit-stop strategies — timing is a relatively low-frequency decision (2--3 times per race), the option space is discrete and enumerable (pit on lap 15, 16, 17... with soft, medium, or hard tyres), and the models, though still imperfect, are good enough at this level of abstraction. But classical techniques struggle with the high-frequency, continuous, reactive decision making that the 2026 regulations demand. "How much energy should I deploy on the second straight given that the car behind just closed to within 1.2 seconds and they have a 3-lap tyre advantage?" This is not a question that can be pre-computed: the state space is too large, decisions are too frequent, and the interaction between energy, tyres, and competitor behaviour is too complex for hand-crafted heuristics to capture optimally. This is exactly where RL excels: learning a reactive policy through experience that maps high-dimensional observations to continuous action spaces. A hybrid approach bridges this boundary — classical methods for strategic decisions, with an RL policy handling continuous within-lap energy deployment, initialised via Imitation Learning from historical race data so the policy begins by replicating expert driver behaviour rather than exploring randomly.
 
+#pagebreak()
 #bibliography("ref.bib", title: "References")
