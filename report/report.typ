@@ -288,7 +288,7 @@ We find that $gamma=0.99 "and" tau=0.01$ gives the best performance. $gamma=0.99
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
 = Results and Comparison
 
-SAC consistently outperforms PPO across both environments — *9418* vs *4568* on HalfCheetah-v4 and *5369* vs *3204* on Ant-v4 — despite training on fewer than half the timesteps (450k vs 1M), reflecting its substantially greater sample efficiency as an off-policy method. SAC stores transitions in a replay buffer and reuses them across multiple updates, whereas PPO discards rollout data after each on-policy update.
+SAC consistently outperforms PPO across both environments, *9418* vs *4568* on HalfCheetah-v4 and *5369* vs *3204* on Ant-v4, despite training on fewer than half the timesteps (450k vs 1M), reflecting its substantially greater sample efficiency as an off-policy method. SAC stores transitions in a replay buffer and reuses them across multiple updates, whereas PPO discards rollout data after each on-policy update.
 
 #let figure_height = 24%;
 
