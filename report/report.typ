@@ -291,12 +291,15 @@ In the case of HalfCheetah both policies have managed to learn almost the same t
 
 
 Looking at what the best policy under SAC has learned is rather peculiar. Instead on using all four limbs to move as one would expect to see taking inspiration from what is found in nature, the policy has learned to use two limbs to just stabilise itself and the other two limbs to push forward. It's motion can almost be described as a rowing motion, with two limbs staying almost stationary and effectively only using two limbs to move. On the contrary to this, we find that PPO has learned a policy that involves are more cohesive use of all the limbs. You see a lot more contribution of all the limbs but the SAC policy results in much faster locomotion. Another interesting thing to notice is that both have ended choosing to maintain a specific orientation, as in while moving both policies (SAC and PPO) tend to correct their body orientaiton with respect to the direction of motion as if having a prefered orientation, similar to how humans face the direction the move in while walking instead of say walking sideways. 
+
+#let figure_height = 24%;
+
 #figure(
   grid(
     columns: 2,
     gutter: 2mm,
-    image("./figures/final_ant.png",height: 20%),
-    image("./figures/final_hc.png",height: 20%),
+    image("./figures/final_ant.png",height: figure_height),
+    image("./figures/final_hc.png",height: figure_height),
   ),
   caption: [
     Plots of final runs across $"seed"={1,2,3}$ for both HalfCheetah-v4 and Ant-v4 environments
