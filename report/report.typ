@@ -265,22 +265,21 @@ We find that $gamma=0.99 "and" tau=0.01$ gives the best performance. $gamma=0.99
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
 = Results and Comparison
 
-We found that in terms of performance SAC has always dominated over PPO across different environments. 
+SAC consistently outperforms PPO across both environments in terms of final episodic return. In Ant-v4, SAC reaches *5369.59* versus PPO's *3204.60*, and in HalfCheetah-v4,  *9418.79* versus PPO's *4568.06* at 1M steps.We found that in terms of performance SAC has always dominated over PPO across different environments. 
 
-SAC has substantially greater sample efficiency than PPO across both environments because SAC is an off-policy method allowing for the reuse of trajectories for training. Transitions in SAC are stored in a replay buffer and then reused acorss multiple updates whereas PPO discards rollout data after each on-policy update. This is reflected in our study as well. SAC outperforms PPO even though it is trained only 450k timesteps as opposed to the 1 million timesteps that the PPO is trained on.
+SAC has substantially greater sample efficiency than PPO across both environments because SAC is an off-policy method allowing for the reuse of trajectories for training. Transitions in SAC are stored in a replay buffer and then reused across multiple updates whereas PPO discards rollout data after each on-policy update. This is reflected in our study as well. SAC outperforms PPO even though it is trained only 450k timesteps as opposed to the 1 million timesteps that the PPO is trained on.
 
-PPO has consistently narrower confidence band as compared to SAC, hence showing greater training stability. This can attributed to the clipped objective of PPO. SAC shows wider variance, characteristic of the interaction between actor, critic and target network causing instability because they are all trying to mutually update themselves in accordance to a moving target. PPO entirely avoides this because its critic is involved in caculating advantage for the current batch and not in a continuous feedback loop with a replay buffer and a target network. Neither model has fully converged at the end of training. 
+In terms of training stability and reliability across seeds, PPO maintains a consistently narrow confidence band throughout training in both environments, indicating that its clipped objective produces highly reproducible learning trajectories across seeds. SAC exhibits wider variance, particularly in the 0.2M–0.5M range in Ant-v4, characteristic of its continuous actor-critic feedback loop where the actor, critic and target network are all updating against mutually moving targets. PPO avoids this entirely as its critic is only used to compute advantages for the current batch. Notably in HalfCheetah-v4, SAC's mean return plateaus and slightly declines after 0.4M steps while PPO continues to improve steadily, suggesting SAC may be approaching a local optimum while PPO has not yet converged. Neither algorithm has fully converged by the end of training.
 
 Despite fewer timesteps, SAC required more wall-clock time (2hr vs 1hr on HalfCheetah, 1hr 40min vs 1hr 10min on Ant) due to heavier per-step computation: replay buffer sampling and multiple network updates versus PPO's amortised batch updates. SAC is preferable when environment interactions are the bottleneck; PPO is preferable when fast simulation makes data collection cheap.
 
-PPO demonstrates consistently low variance throughout training, with a narrow confidence band across the full 1M steps, indicating that its clipped objective produces highly reproducible learning trajectories regardless of random initialisation. SAC exhibits notably higher seed variance reflecting the sensitivity of its continuous actor-critic feedback loop to initial conditions. Towards the end of training SAC's variance narrows, suggesting that its entropy regularisation term eventually guides different seeds toward similarly performant policies despite mid-training instability. Overall, PPO is the more reliable algorithm across seeds, while SAC trades seed reliability for substantially higher final performance.
 
 #figure(
   grid(
     columns: 2,
     gutter: 2mm,
-    image("./figures/final_ant.png",height: 25%),
-    image("./figures/final_hc.png",height: 25%),
+    image("./figures/final_ant.png",height: 20%),
+    image("./figures/final_hc.png",height: 20%),
   ),
   caption: [
     Plots of final runs across $"seed"={1,2,3}$ for both HalfCheetah-v4 and Ant-v4 environments
@@ -292,8 +291,6 @@ In the case of HalfCheetah both policies have managed to learn almost the same t
 Looking at what the best policy under SAC has learned is rather peculiar. Instead on using all four limbs to move as one would expect to see taking inspiration from what is found in nature, the policy has learned to use two limbs to just stabilise itself and the other two limbs to push forward. It's motion can almost be described as a rowing motion, with two limbs staying almost stationary and effectively only using two limbs to move. On the contrary to this, we find that PPO has learned a policy that involves are more cohesive use of all the limbs. You see a lot more contribution of all the limbs but the SAC policy results in much faster locomotion. Another interesting thing to notice is that both have ended choosing to maintain a specific orientation, as in while moving both policies (SAC and PPO) tend to correct their body orientaiton with respect to the direction of motion as if having a prefered orientation, similar to how humans face the direction the move in while walking instead of say walking sideways. 
 
 For HalfCheetah, both algorithms adequately solve the task. Both achieve fast directed locomotion, with SAC producing notably more fluid motion than PPO's occasionally erratic motion. For Ant, adequate task completion is less convincing. While both achieve forward locomotion, the learned policies are mechanically peculiar. SAC's two-limb rowing motion and PPO's uncoordinated gait both feel far from a natural solution. SAC in particular appears to be exploiting the reward function rather than learning the intended behaviour, finding a local optimum that satisfies the objective while ignoring two limbs entirely. This suggests both algorithms, given the training budgets used, have found reward-maximising shortcuts rather than genuinely solving the task.
-
-Even though these methods work generally well and accomodate the above mentioned challenges, it is important to note that they individually work best for certain cases. PPO is feasible and effective in simulation-driven robotics workflows, where large amounts of data can be generated cheaply. In contrast, SAC is more feasible for real-world robotics applications. Its sample efficiency, robustness to noise, and ability to learn from off-policy data make it better suited for physical systems with limited interaction budgets, however it is tough to tune and is rather sensitive to hyperparameter tuning.
 
 // ─── Proposed Robotics Task (25 marks) ─────────────────────────────────────
 = Proposed Robotics Task
