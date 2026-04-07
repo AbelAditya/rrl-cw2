@@ -1,7 +1,7 @@
 // ─── Page & Typography Setup (NeurIPS-style) ───────────────────────────────────
 #set page(
   paper: "us-letter",
-  margin: (left: 1.5cm, right: 1.5cm, top: 2.7cm, bottom: 2.2cm),
+  margin: (left: 1.3cm, right: 1.3cm, top: 2.3cm, bottom: 1.9cm),
   numbering: "1",
   number-align: center + bottom,
   footer-descent: 25pt - 10pt,
@@ -13,14 +13,14 @@
 
 #set text(
   font: ("Times New Roman", "Nimbus Roman", "TeX Gyre Termes"),
-  size: 10pt,
+  size: 9.5pt,
 )
 #set par(
   justify: true,
-  leading: 0.43em,
+  leading: 0.39em,
   first-line-indent: 0em,
 )
-#set block(spacing: 1.0em)
+#set block(spacing: 0.62em)
 #set heading(numbering: "1.")
 
 #show math.equation: set text(font: "TeX Gyre Termes Math")
@@ -36,11 +36,11 @@
   }
   let ex = 7.95pt
   text(size: 12pt, weight: "bold", {
-    v(2.7 * ex, weak: true)
+    v(2.1 * ex, weak: true)
     set align(left)
     set par(first-line-indent: 0em)
     [#number #h(1em, weak: true) #it.body]
-    v(2 * ex, weak: true)
+    v(1.45 * ex, weak: true)
   })
 }
 
@@ -50,11 +50,11 @@
   }
   let ex = 6.62pt
   text(size: 10pt, weight: "bold", {
-    v(2.70 * ex, weak: true)
+    v(2.0 * ex, weak: true)
     set align(left)
     set par(first-line-indent: 0em)
     [#number #h(1em, weak: true) #it.body]
-    v(2.03 * ex, weak: true)
+    v(1.35 * ex, weak: true)
   })
 }
 
@@ -64,11 +64,11 @@
   }
   let ex = 6.62pt
   text(size: 10pt, weight: "bold", {
-    v(2.6 * ex, weak: true)
+    v(1.9 * ex, weak: true)
     set align(left)
     set par(first-line-indent: 0em)
     [#number #h(1em, weak: true) #it.body]
-    v(1.8 * ex, weak: true)
+    v(1.2 * ex, weak: true)
   })
 }
 
@@ -106,9 +106,7 @@
 
 = Introduction to PPO and SAC
 
-Proximal Policy Optimization (PPO) @PPO and Soft Actor-Critic (SAC) @SAC are two widely used deep reinforcement learning algorithms which are introduced in the late 2010s. These algorithms are use for continous control but they differ in how they use the _data_. PPO is an on-policy method, which means that each policy iteration update is computed using tragectories collected by the current policy, and when the policy is updated all previously gathered data is discarded. SAC, on the other hand, is an off-policy method, it stores the previous transitions in a replay buffer, meaning that it can continue to learn from older transitions stored in the buffer, which usually makes it much more sample efficient.
-
-PPO is a gradient method that seeks to take the largest possible improvement step without destabilising the policy. It was developed as a practical improvement over Trust Region Policy Optimization (TRPO) \@trpo, which enforced a KL divergence constraint on the policy updates. PPO replaces the hard trust-region style of KL divergence with a clipped surrogate objective.
+Proximal Policy Optimization (PPO) @PPO and Soft Actor-Critic (SAC) @SAC are two widely used deep RL algorithms for continuous control. PPO is on-policy: each update uses trajectories from the current policy, and old data is discarded. SAC is off-policy: it stores transitions in a replay buffer and reuses past experience, making it substantially more sample efficient. PPO seeks the largest policy improvement step without destabilising the policy, replacing the hard KL constraint of TRPO with a clipped surrogate objective.
 
 Before PPO updates the policy, we must estimate how much better each action was compared to the baseline. We implement this via Generalised Advantage Estimation (GAE), which iterates backward through a collected rollout. At each timestep $t$, we compute the TD error:
 
@@ -134,30 +132,21 @@ $
   L^"CLIP" (theta) = 1/(|cal(B)|) sum_(t in cal(B)) max(-hat(A)_t dot r_t (theta), -hat(A)_t dot "clip"(r_t (theta), 1 - epsilon.alt, 1 + epsilon.alt))
 $
 
-Note that this is equivalent to the original paper's formulation $min(r_t hat(A)_t, "clip"(r_t) hat(A)_t)$ after negation for gradient descent. The intuition here is simple: if the advantage is positive, i.e. the action was good, we would want to increase its probability, but only up to a factor of $(1 + epsilon.alt)$. If the advantage is negative, we do the same but clip at $(1 - epsilon.alt)$. The clipping creates a "pessimistic" lower bound on the policy improvement i.e. the gradient vanishes once the ratio leaves the trusted interval, preventing the catastrophic failures observed with naive policy gradient methods.
+If the advantage is positive the action was good, so we increase its probability, but only up to a factor of $(1 + epsilon.alt)$; if negative, we clip at $(1 - epsilon.alt)$. The gradient vanishes once the ratio leaves the trusted interval, preventing catastrophic updates seen with naive policy gradient methods.
 
 The critic $V_phi.alt (s)$ is trained alongside the policy by minimising MSE against the GAE return targets:
 
 $ L^"VF" (phi.alt) = 1/(|cal(B)|) sum_(t) (V_phi.alt (s_t) - R_t)^2 $
 
-This lets the critic learn a smoother estimate of the expected future return, which in turn improves the quality of the advantage estimates used by the actor. In practice, PPO collects a rollout of 2048 steps, computes GAE over the entire buffer, then performs 10 epochs of minibatch gradient descent, recomputing policy log-probabilities on each minibatch and updating both actor and critic. The importance-sampling ratio corrects for the fact that by later epochs, the policy has drifted from the one that collected the data, and the clipping mechanism ensures this drift remains bounded.
+This lets the critic learn a smoother estimate of the expected future return, which in turn improves the quality of the advantage estimates used by the actor.
 
 
-*Soft Actor Critic (SAC)* is an off-policy actor-critic RL algorithm based on the maximum entropy reinforcement leanring framework. The soft actor-critic algorithm incorporates three key ingredients: an actor-critic architecture with separate policy and value function networks, an off-policy formulation that enables reuse of previously collected data for efficiency, and entropy maximization to enable stability and exploration @SAC. 
-
-The entropy maximization framework proposes the use of an entropy augmented return objective:
-$
-  V(s_t) = E_(a_t~pi)[Q(s_t, a_t) + alpha H(pi(dot|s_t)))]
-$ 
-
-This encourages the policy to remain sotchastic, promoting exploration and robustness while still optimising for high reward trajectories. The temperature parameter $alpha$ controls the trade off between reward maximization and entropy, with a higher $alpha$ favouring stochasticity and a lower $alpha$ favouring determinism.
-
-The theory from the orginal paper proposes that we have a network for critic ($Q_psi$) and a network for actor ($pi_phi$), in addition to this it was also proposed to have an extra soft value function approximator as it was found to improve training stability. However, we keep the code implementation simple and only implement a critic and an actor.
+*Soft Actor Critic (SAC)* is an off-policy actor-critic algorithm built on the maximum entropy RL framework @SAC. SAC augments the reward with an entropy bonus $alpha H(pi)$, encouraging the policy to remain stochastic for exploration and robustness. The temperature $alpha$ trades off reward maximisation against entropy and is tuned automatically (see below). We use an actor $pi_phi.alt$ and critic $Q_psi$ (omitting the separate soft value network from the original paper).
 
 For training the Q-function network we use the following loss: 
 $
   J_(Q)(psi) = E_((s_t,a_t) ~ D)[1/2(Q_(psi)(s_t,a_t) - hat(Q)(s_t,a_t))^2]  "where",\
-  hat(Q)(s_t,a_t) = r + gamma (Q_(overline(psi))(s_(t+1),a') - alpha log pi_(phi)(a'|s_(t+1))) ; a' ~ pi_(phi)(dot|s_t)
+  hat(Q)(s_t,a_t) = r + gamma (Q_(overline(psi))(s_(t+1),a') - alpha log pi_(phi.alt)(a'|s_(t+1))) ; a' ~ pi_(phi.alt)(dot|s_t)
 
 $<critic_loss_SAC>
 
@@ -167,29 +156,21 @@ $
 $
 Here, $tau$ is the polyak averaging constant and controls how significantly changes in $psi$ influence the change in $overline(psi)$.
 
-A neat little trick that we do employ in the code implementation (also proposed in the original paper) is to have two different set of critic weights ${psi_1, psi_2}$ that are trained simultaneously. We then feed $min(Q_(psi_1)(s_t,a_t),Q_(psi_2)(s_t,a_t))$ and $min(Q_(overline(psi)_1)(s_t,a_t),Q_(overline(psi)_2)(s_t,a_t))$ into respective loss terms to mitigate positive bias. Therefore, @critic_loss_SAC can be rewritten as :-
+We train two critics $\{psi_1, psi_2\}$ simultaneously and take $min_i Q_(overline(psi)_i)$ in the target to mitigate overestimation bias.
 
+We train the actor using the following loss: 
 $
-  J_(Q)(psi) = E_((s_t,a_t) ~ D)[1/2(Q_(psi_i)(s_t,a_t) - hat(Q)(s_t,a_t))^2]  "where",\
-  hat(Q)(s_t,a_t) = r + gamma (attach(min, b:i={1,2})(Q_(overline(psi_i))(s_(t+1),a')) - alpha log pi_(phi)(a'|s_(t+1))) ; a' ~ pi_(phi)(dot|s_t)
-
-$<critic_loss_code_SAC>
-
-We train the actor using following loss: 
+  J_(pi)(phi.alt) = E_(a ~ pi_phi.alt)[alpha log pi_(phi.alt)(a_phi.alt|s_t) - attach(min, b:i={1,2})(Q_(psi_i)(a_phi.alt,s_t))]
 $
-  J_(pi)(phi) = E_(a ~ pi_phi)[alpha log pi_(phi)(a_phi|s_t) - attach(min, b:i={1,2})(Q_(psi_i)(a_phi,s_t))]
-$
-Here we employ the reparameterization trick to reparameterize actions $a$ as $a_phi (s,xi) "where" xi ~ N(0,I)$ making $a_phi$ a deterministic function of $phi "and" xi$ allowing us to push the gradient through the sampling operation. 
+Here we employ the reparameterization trick to reparameterize actions $a$ as $a_phi.alt (s,xi) "where" xi ~ N(0,I)$ making $a_phi.alt$ a deterministic function of $phi.alt "and" xi$ allowing us to push the gradient through the sampling operation. 
 
 Additionally, instead of treating $alpha$ as a fixed parameter we update it along with the other parameters.
 
 $
-  J(alpha) = E_(a ~ pi_phi)[- alpha (log pi_phi (a|s) + overline(HH))]
+  J(alpha) = E_(a ~ pi_phi.alt)[- alpha (log pi_phi.alt (a|s) + overline(HH))]
 $
 
-Using the above mentioned automatic entropy tuning we manage to remove a hyperparameter to optimize for, rather it now adapts to how well the policy is performing, $alpha$ decreases as the policy is improving allowing the policy to exploit more confidently.
-
-SAC was an improvement over previously proposed RL methods in terms of sample efficiency as it is an off-policy method and stability to convergence and sensitivity to hyperparameters which was notoriously tough to achieve with off-policy model free methods.
+This removes $alpha$ as a manual hyperparameter: it decreases as the policy improves, shifting the agent from exploration to exploitation automatically.
 
 // ─── Relevance to Robotics (3 marks)─────────────────────────────────────
 
