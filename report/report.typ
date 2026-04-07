@@ -280,8 +280,8 @@ PPO has consistently narrower confidence band as compared to SAC, hence showing 
 Despite fewer timesteps SAC consistently had higher wall clock time due to per step computation: replay buffer sampling, multiple network updates versus PPO's amortised batch updates. 
 #figure(
   table(
-    columns: (auto, auto, auto, auto),
-    align: (left, right, right, right),
+    columns: (auto, auto, auto),
+    align: (left, right, right),
     stroke: 0.5pt,
     table.header([], [*HalfCheetah-v4*], [*Ant-v4*]),
     [*PPO*], [1hr], [1hr 10min],
