@@ -141,22 +141,21 @@ This lets the critic learn a smoother estimate of the expected future return, wh
 
 *Soft Actor Critic (SAC)* is an off-policy actor-critic algorithm built on the maximum entropy RL framework @SAC. SAC augments the reward with an entropy bonus $alpha H(pi)$, encouraging the policy to remain stochastic for exploration and robustness. The temperature $alpha$ trades off reward maximisation against entropy and is tuned automatically (see below). We use an actor $pi_phi.alt$ and critic $Q_psi$ (omitting the separate soft value network from the original paper).
 
-For training the Q-function network we use the following loss: 
+For training the Q-function network we use the following loss:
 $
-  J_(Q)(psi) = E_((s_t,a_t) ~ D)[1/2(Q_(psi)(s_t,a_t) - hat(Q)(s_t,a_t))^2]  "where",\
+  J_(Q)(psi) = E_((s_t,a_t) ~ D)[1/2(Q_(psi)(s_t,a_t) - hat(Q)(s_t,a_t))^2] "where",\
   hat(Q)(s_t,a_t) = r + gamma (Q_(overline(psi))(s_(t+1),a') - alpha log pi_(phi.alt)(a'|s_(t+1))) ; a' ~ pi_(phi.alt)(dot|s_t)
-
 $<critic_loss_SAC>
 
 The target weights $overline(psi)$ are a Polyak average of the online weights: $overline(psi) <- tau psi + (1-tau) overline(psi)$, where $tau$ controls how quickly the target tracks the online network.
 
 We train two critics $\{psi_1, psi_2\}$ simultaneously and take $min_i Q_(overline(psi)_i)$ in the target to mitigate overestimation bias.
 
-We train the actor using the following loss: 
+We train the actor using the following loss:
 $
-  J_(pi)(phi.alt) = E_(a ~ pi_phi.alt)[alpha log pi_(phi.alt)(a_phi.alt|s_t) - attach(min, b:i={1,2})(Q_(psi_i)(a_phi.alt,s_t))]
+  J_(pi)(phi.alt) = E_(a ~ pi_phi.alt)[alpha log pi_(phi.alt)(a_phi.alt|s_t) - attach(min, b: i={1,2})(Q_(psi_i)(a_phi.alt,s_t))]
 $
-Here we employ the reparameterization trick to reparameterize actions $a$ as $a_phi.alt (s,xi) "where" xi ~ N(0,I)$ making $a_phi.alt$ a deterministic function of $phi.alt "and" xi$ allowing us to push the gradient through the sampling operation. 
+Here we employ the reparameterization trick to reparameterize actions $a$ as $a_phi.alt (s,xi) "where" xi ~ N(0,I)$ making $a_phi.alt$ a deterministic function of $phi.alt "and" xi$ allowing us to push the gradient through the sampling operation.
 
 Additionally, instead of treating $alpha$ as a fixed parameter we update it along with the other parameters.
 
@@ -179,7 +178,7 @@ PPO is robust to catastrophic updates due to the clipped objective and is straig
 
 = Environment Description
 
-We train in HalfCheetah-v4 and Ant-v4 from MuJoCo Gymnasium @mujoco. Both are locomotion tasks with continuous action spaces, chosen because they represent different levels of complexity under the same objective, making them directly comparable for benchmarking PPO and SAC.
+We train in HalfCheetah-v4 and Ant-v4 from MuJoCo Gymnasium @towers2025gymnasiumstandardinterfacereinforcement. Both are locomotion tasks with continuous action spaces, chosen because they represent different levels of complexity under the same objective, making them directly comparable for benchmarking PPO and SAC.
 
 *HalfCheetah-v4* is a planar 2D biped with 6 actuated joints. The state space $cal(S) subset.eq RR^17$ contains torso height and pitch, joint angles for all 6 joints, and their time derivatives; the x-position is excluded to prevent the agent from memorising absolute position. The action space $cal(A) subset.eq [-1,1]^6$ is the torque applied to each joint. The reward is $r_t = w_"forward" dot.c dot(x) - w_"ctrl" attach(||a_t||, tr: 2, br: 2)$, rewarding forward velocity and penalising large torques. The episode never terminates early.
 
@@ -211,7 +210,7 @@ The following values of $epsilon.alt$ were chosen: $epsilon.alt in {0.1,0.2,0.3}
   caption: [PPO on HalfCheetah-v4: mean episodic return over 10 episodes per ($epsilon$, $lambda$) pair],
 ) <tab1>
 
-  Here we observed that we got the best performance at $epsilon = 0.3 "and" lambda = 0.95$. A permissive policy update strategy works best here because the HalfCheetah doesn't terminate therefore there aren't any catastrophic consequences to making large policy updates. Moreover, $lambda=0.95$ works better than full Monte Carlo ($lambda=1$) because $lambda=0.95$ provides better variance control as it would discount variance just enough to have stable advantage estimates contrary to the full Monte Carlo estimation where it would just accumulate over the entire episode length, additionally it shows resilience towards errors in later rewards whereas in the case of $lambda=1$ they would propagate all the way back through the return. 
+Here we observed that we got the best performance at $epsilon = 0.3 "and" lambda = 0.95$. A permissive policy update strategy works best here because the HalfCheetah doesn't terminate therefore there aren't any catastrophic consequences to making large policy updates. Moreover, $lambda=0.95$ works better than full Monte Carlo ($lambda=1$) because $lambda=0.95$ provides better variance control as it would discount variance just enough to have stable advantage estimates contrary to the full Monte Carlo estimation where it would just accumulate over the entire episode length, additionally it shows resilience towards errors in later rewards whereas in the case of $lambda=1$ they would propagate all the way back through the return.
 
 #figure(
   table(
@@ -273,10 +272,9 @@ SAC consistently outperforms PPO across both environments — *9418* vs *4568* o
   grid(
     columns: 2,
     gutter: 2mm,
-    image("./figures/final_ant.png",height: figure_height),
-    image("./figures/final_hc.png",height: figure_height),
+    image("./figures/final_ant.png", height: figure_height), image("./figures/final_hc.png", height: figure_height),
   ),
-  caption: [Learning curves for PPO (blue) and SAC (orange) with shaded 95% confidence intervals across seeds $= {1,2,3}$. Left: Ant-v4. Right: HalfCheetah-v4.]
+  caption: [Learning curves for PPO (blue) and SAC (orange) with shaded 95% confidence intervals across seeds $= {1,2,3}$. Left: Ant-v4. Right: HalfCheetah-v4.],
 )
 
 In terms of training stability and reliability across seeds, PPO maintains a consistently narrow confidence band throughout training in both environments, indicating that its clipped objective produces highly reproducible learning trajectories across seeds. SAC exhibits wider variance, particularly in the 0.2M–0.5M range in Ant-v4, characteristic of its continuous actor-critic feedback loop where the actor, critic and target network are all updating against mutually moving targets. PPO avoids this entirely as its critic is only used to compute advantages for the current batch. Neither algorithm has fully converged by the end of training.
@@ -292,7 +290,7 @@ For HalfCheetah, both algorithms adequately solve the task. Both achieve fast di
 // ─── Proposed Robotics Task (25 marks) ─────────────────────────────────────
 = Proposed Robotics Task
 
-The 2026 Formula 1 regulations introduced a fundamental shift in power unit architecture: roughly half the car's power now comes from electrical deployment via the upgraded MGU-K (tripled in capacity to 350kW), and the MGU-H is removed entirely. However, battery capacity is still the same 4MJ, meaning the battery is charged and depleted multiple times per lap. This makes within-lap energy management a continuous, high-frequency control problem: the driver must constantly decide when to deploy battery energy, when to harvest it (super clipping), and how to coordinate this with the new active aerodynamics, since lifting off disables the active aero allowing more harvesting but reducing straight-line speed. We propose framing this within-lap energy and pace management task as a POMDP, because most variables critical to decision making are hidden from the agent. Tyre degradation is only indirectly observed through surface temperature, yet internal rubber state can collapse suddenly (the "tyre cliff"). Competitor energy levels and strategy are invisible — the agent can see lap times and gaps but not battery state or pit strategy. Track grip evolves each lap as rubber is laid down but cannot be measured directly, and weather conditions affect grip levels. Battery health degrades over a race distance in ways that cannot be fully captured.
+The 2026 Formula 1 regulations introduced a fundamental shift in power unit architecture: roughly half the car's power now comes from electrical deployment via the upgraded MGU-K (tripled in capacity to 350kW), and the MGU-H is removed entirely @fia2024pu2026 @f1_2026_pu_explained. However, battery capacity is still the same 4MJ, meaning the battery is charged and depleted multiple times per lap. This makes within-lap energy management a continuous, high-frequency control problem: the driver must constantly decide when to deploy battery energy, when to harvest it (super clipping), and how to coordinate this with the new active aerodynamics, since lifting off disables the active aero allowing more harvesting but reducing straight-line speed. We propose framing this within-lap energy and pace management task as a POMDP, because most variables critical to decision making are hidden from the agent. Tyre degradation is only indirectly observed through surface temperature, yet internal rubber state can collapse suddenly (the "tyre cliff"). Competitor energy levels and strategy are invisible — the agent can see lap times and gaps but not battery state or pit strategy. Track grip evolves each lap as rubber is laid down but cannot be measured directly, and weather conditions affect grip levels. Battery health degrades over a race distance in ways that cannot be fully captured.
 
 The true state $s$ would include the car's exact position, velocity, battery state, tyre condition, fuel load, aerodynamic state, track grip, weather effects, and the hidden state of rival cars. The observation $o$ would consist of car telemetry available to engineers and driver: speed, throttle and brake traces, battery charge, tyre temperature and pressures, lap and sector times, time gaps to nearby cars, overtake availability, active aero deployments, and noisy weather forecasts. The action $a in RR^3$ is continuous: an energy deployment level (harvest to full deploy), a target pace delta (push vs. conserve), and harvesting intensity (trading lap time for energy, which also disables active aero). The reward function combines sector times relative to target pace, an energy management penalty for depleting the battery at critical moments (e.g. end of straights), and a tyre preservation term.
 
