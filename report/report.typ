@@ -1,7 +1,7 @@
 // ─── Page & Typography Setup (NeurIPS-style) ───────────────────────────────────
 #set page(
   paper: "us-letter",
-  margin: (left: 1.3cm, right: 1.3cm, top: 2.3cm, bottom: 1.9cm),
+  margin: (left: 1.3cm, right: 1.3cm, top: 1.8cm, bottom: 1.6cm),
   numbering: "1",
   number-align: center + bottom,
   footer-descent: 25pt - 10pt,
@@ -26,6 +26,12 @@
 #show math.equation: set text(font: "TeX Gyre Termes Math")
 #set math.equation(numbering: "(1)")
 
+#show math.equation.where(block: true): it => {
+  v(-0.2em)
+  it
+  v(-0.2em)
+}
+
 #let pd(top, bottom) = $frac(partial #top, partial #bottom)$
 #let ddot(s) = $dot(dot(#s))$
 
@@ -36,11 +42,11 @@
   }
   let ex = 7.95pt
   text(size: 12pt, weight: "bold", {
-    v(2.1 * ex, weak: true)
+    v(1.6 * ex, weak: true)
     set align(left)
     set par(first-line-indent: 0em)
     [#number #h(1em, weak: true) #it.body]
-    v(1.45 * ex, weak: true)
+    v(1.0 * ex, weak: true)
   })
 }
 
@@ -118,15 +124,7 @@ $ hat(A)_t = delta_t + gamma lambda(1 - d_t) hat(A)_(t + 1) $
 
 with $hat(A)_T = 0$ at the rollout boundary. The parameter $lambda$ controls the bias-variance tradeoff in advantage estimation: at $lambda = 0$, estimates reduce to one-step TD errors i.e. low variance but biased because they rely on the value function's accuracy. At $lambda = 1$, estimation becomes equivalent to Monte Carlo returns, unbiased but high variance due to summing over full trajectories. The return targets used to train the critic are then $R_t = hat(A)_t + V(s_t)$.
 
-The core update mechanism relies on the ratio between the updated and the old policies:
-
-$ r_t (theta) = (pi_theta (a_t | s_t)) / (pi_(theta_"old")(a_t | s_t)) $ <r_func>
-
-Though we implement this a bit differently; we compute in log-space for numerical stability:
-
-$ log r_t (theta) = log pi_theta (a_t | s_t) - log pi_(theta_"old") (a_t | s_t) $
-
-then exponentiate to obtain @r_func. When this ratio is close to 1, the new policy behaves similarly to the old one. PPO prevents this ratio from deviating too far by clipping it:
+The core update mechanism relies on the importance-sampling ratio $r_t(theta) = pi_theta(a_t|s_t) slash pi_(theta_"old")(a_t|s_t)$, computed via log-space subtraction then exponentiation for numerical stability. When this ratio is close to 1, the new policy behaves similarly to the old one. PPO prevents it from deviating too far by clipping it:
 
 $
   L^"CLIP" (theta) = 1/(|cal(B)|) sum_(t in cal(B)) max(-hat(A)_t dot r_t (theta), -hat(A)_t dot "clip"(r_t (theta), 1 - epsilon.alt, 1 + epsilon.alt))
@@ -150,11 +148,7 @@ $
 
 $<critic_loss_SAC>
 
-The $overline(psi)$ is a set of target value network weights that are calculated as a moving average of the weights of the Q-function network ($psi$).
-$
-  overline(psi)_(t'+1) = tau psi_t' + (1-tau) overline(psi)_t'
-$
-Here, $tau$ is the polyak averaging constant and controls how significantly changes in $psi$ influence the change in $overline(psi)$.
+The target weights $overline(psi)$ are a Polyak average of the online weights: $overline(psi) <- tau psi + (1-tau) overline(psi)$, where $tau$ controls how quickly the target tracks the online network.
 
 We train two critics $\{psi_1, psi_2\}$ simultaneously and take $min_i Q_(overline(psi)_i)$ in the target to mitigate overestimation bias.
 
@@ -269,7 +263,7 @@ We get the best performance from $gamma = 0.99 "and" tau = 0.05$. The domination
 We find that $gamma=0.99 "and" tau=0.01$ gives the best performance. $gamma=0.99$ dominates again for the same reasons discussed previously. However, an interesting thing to notice is that here $tau=0.01$ gives better performance as opposed to $tau=0.05$ which was best for HalfCheetah. This is because the Q-function landscape now shifts more rapidly, hence aggressive update strategies ($tau=0.05$) introduce instability. Early termination causes sharp discontinuities in Q-function values near termination states and a fast moving target network would amplify these rather than smooth them over. Therefore, $tau=0.01$ strikes a balance between tracking changes fast enough and remaining conservative enough to avoid instability. We selected ($gamma = 0.99, tau = 0.05$) for HalfCheetah and ($gamma = 0.99, tau = 0.01$) for Ant in our final comparison runs.
 
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
-= Results and Comparison\
+= Results and Comparison
 
 We found that in terms of performance SAC has always dominated over PPO across different environments. 
 
@@ -277,20 +271,7 @@ SAC has substantially greater sample efficiency than PPO across both environment
 
 PPO has consistently narrower confidence band as compared to SAC, hence showing greater training stability. This can attributed to the clipped objective of PPO. SAC shows wider variance, characteristic of the interaction between actor, critic and target network causing instability because they are all trying to mutually update themselves in accordance to a moving target. PPO entirely avoides this because its critic is involved in caculating advantage for the current batch and not in a continuous feedback loop with a replay buffer and a target network. Neither model has fully converged at the end of training. 
 
-Despite fewer timesteps SAC consistently had higher wall clock time due to per step computation: replay buffer sampling, multiple network updates versus PPO's amortised batch updates. 
-#figure(
-  table(
-    columns: (auto, auto, auto),
-    align: (left, right, right),
-    stroke: 0.5pt,
-    table.header([], [*HalfCheetah-v4*], [*Ant-v4*]),
-    [*PPO*], [1hr], [1hr 10min],
-    [*SAC*], [2hr], [1hr 40min],
-  ),
-  caption: [Wall clock training time for PPO and SAC across different environments],
-) <tab4>
-
-SAC is therefore preferable when environment interactions are the bottleneck, such as real-world robotics, while PPO is preferable when fast simulation makes data collection cheap.
+Despite fewer timesteps, SAC required more wall-clock time (2hr vs 1hr on HalfCheetah, 1hr 40min vs 1hr 10min on Ant) due to heavier per-step computation: replay buffer sampling and multiple network updates versus PPO's amortised batch updates. SAC is preferable when environment interactions are the bottleneck; PPO is preferable when fast simulation makes data collection cheap.
 
 PPO demonstrates consistently low variance throughout training, with a narrow confidence band across the full 1M steps, indicating that its clipped objective produces highly reproducible learning trajectories regardless of random initialisation. SAC exhibits notably higher seed variance reflecting the sensitivity of its continuous actor-critic feedback loop to initial conditions. Towards the end of training SAC's variance narrows, suggesting that its entropy regularisation term eventually guides different seeds toward similarly performant policies despite mid-training instability. Overall, PPO is the more reliable algorithm across seeds, while SAC trades seed reliability for substantially higher final performance.
 
@@ -313,9 +294,6 @@ Looking at what the best policy under SAC has learned is rather peculiar. Instea
 For HalfCheetah, both algorithms adequately solve the task. Both achieve fast directed locomotion, with SAC producing notably more fluid motion than PPO's occasionally erratic motion. For Ant, adequate task completion is less convincing. While both achieve forward locomotion, the learned policies are mechanically peculiar. SAC's two-limb rowing motion and PPO's uncoordinated gait both feel far from a natural solution. SAC in particular appears to be exploiting the reward function rather than learning the intended behaviour, finding a local optimum that satisfies the objective while ignoring two limbs entirely. This suggests both algorithms, given the training budgets used, have found reward-maximising shortcuts rather than genuinely solving the task.
 
 Even though these methods work generally well and accomodate the above mentioned challenges, it is important to note that they individually work best for certain cases. PPO is feasible and effective in simulation-driven robotics workflows, where large amounts of data can be generated cheaply. In contrast, SAC is more feasible for real-world robotics applications. Its sample efficiency, robustness to noise, and ability to learn from off-policy data make it better suited for physical systems with limited interaction budgets, however it is tough to tune and is rather sensitive to hyperparameter tuning.
-
-// NOTE: We don't need to mention this here, we cover the same thing in Relevance section
-// Even though these methods work generally well and accomodate the above mentioned challenges, it is important to note that they individually work best for certain cases. PPO is feasible and effective in simulation-driven robotics workflows, where large amounts of data can be generated cheaply. In contrast, SAC is more feasible for real-world robotics applications. Its sample efficiency, robustness to noise, and ability to learn from off-policy data make it better suited for physical systems with limited interaction budgets, however it is tough to tune and is rather sensitive to hyperparameter tuning.
 
 // ─── Proposed Robotics Task (25 marks) ─────────────────────────────────────
 = Proposed Robotics Task
