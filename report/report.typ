@@ -294,6 +294,13 @@ SAC is therefore preferable when environment interactions are the bottleneck, su
 
 PPO demonstrates consistently low variance throughout training, with a narrow confidence band across the full 1M steps, indicating that its clipped objective produces highly reproducible learning trajectories regardless of random initialisation. SAC exhibits notably higher seed variance reflecting the sensitivity of its continuous actor-critic feedback loop to initial conditions. Towards the end of training SAC's variance narrows, suggesting that its entropy regularisation term eventually guides different seeds toward similarly performant policies despite mid-training instability. Overall, PPO is the more reliable algorithm across seeds, while SAC trades seed reliability for substantially higher final performance.
 
+#figure(
+  image("./figures/final_ant.png",height: 30%),
+  caption: [
+    Plots of final runs across $"seed"={1,2,3}$ for both HalfCheetah-v4 and Ant-v4 environments
+  ]
+)
+
 In the case of HalfCheetah both policies have managed to learn almost the same thing. However, while observing both side by side one can tell that the policy learnt by SAC seems more natural, more like an actual animal one might spot running somewhere. It is also worth noting that the SAC policy is produces a much faster locomotion compared to the PPO policy. Looking at a render of the policy learnt under PPO, the agent's motion isn't very smooth with slight erratic jumps in between, however the render of a policy learnt under SAC generated more fluid motions.
 
 Looking at what the best policy under SAC has learned is rather peculiar. Instead on using all four limbs to move as one would expect to see taking inspiration from what is found in nature, the policy has learned to use two limbs to just stabilise itself and the other two limbs to push forward. It's motion can almost be described as a rowing motion, with two limbs staying almost stationary and effectively only using two limbs to move. On the contrary to this, we find that PPO has learned a policy that involves are more cohesive use of all the limbs. You see a lot more contribution of all the limbs but the SAC policy results in much faster locomotion. Another interesting thing to notice is that both have ended choosing to maintain a specific orientation, as in while moving both policies (SAC and PPO) tend to correct their body orientaiton with respect to the direction of motion as if having a prefered orientation, similar to how humans face the direction the move in while walking instead of say walking sideways. 
