@@ -295,7 +295,12 @@ SAC is therefore preferable when environment interactions are the bottleneck, su
 PPO demonstrates consistently low variance throughout training, with a narrow confidence band across the full 1M steps, indicating that its clipped objective produces highly reproducible learning trajectories regardless of random initialisation. SAC exhibits notably higher seed variance reflecting the sensitivity of its continuous actor-critic feedback loop to initial conditions. Towards the end of training SAC's variance narrows, suggesting that its entropy regularisation term eventually guides different seeds toward similarly performant policies despite mid-training instability. Overall, PPO is the more reliable algorithm across seeds, while SAC trades seed reliability for substantially higher final performance.
 
 #figure(
-  image("./figures/final_ant.png",height: 30%),
+  grid(
+    columns: 2,
+    gutter: 2mm,
+    image("./figures/final_ant.png",height: 25%),
+    image("./figures/final_ant.png",height: 25%),
+  ),
   caption: [
     Plots of final runs across $"seed"={1,2,3}$ for both HalfCheetah-v4 and Ant-v4 environments
   ]
