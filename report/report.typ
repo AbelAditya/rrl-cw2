@@ -108,6 +108,30 @@
 // ─── Bibliography font size (NeurIPS uses 9pt small) ───────────────────────────
 #show bibliography: set text(size: 9pt)
 
+// ─── Title Page ────────────────────────────────────────────────────────────────
+#align(center)[
+  #v(3cm)
+
+  #text(size: 16pt, weight: "bold")[Coursework 2: On-Policy vs Off-Policy\ in Continuous Control Environments]
+
+  #v(1.2em)
+  #line(length: 100%, stroke: 0.35pt + luma(170))
+  #v(1.2em)
+
+  #text(size: 10pt)[
+    Abel Aditiya Philipose (#text(size: 9.5pt)[S2786756])
+    #h(2em)
+    Love Sahajbir Singh (#text(size: 9.5pt)[S2881386])
+  ]
+
+  #v(0.6em)
+  #text(size: 9.5pt)[School of Informatics, The University of Edinburgh]
+  #v(0.3em)
+  #text(size: 9.5pt)[2025--26]
+]
+
+#pagebreak()
+
 // ─── Algorithm Introduction (10 marks) ─────────────────────────────────────
 
 = Introduction to PPO and SAC
