@@ -368,51 +368,37 @@ We find that $gamma=0.99 "and" tau=0.01$. $gamma=0.99$ dominates again for the s
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
 = Results and Comparison\
 
+We found that in terms of performance SAC has always dominated over PPO across different environments. 
 
+SAC has substantially greater sample efficiency than PPO across both environments because SAC is an off-policy method allowing for the reuse of trajectories for training. Transitions in SAC are stored in a replay buffer and then reused acorss multiple updates whereas PPO discards rollout data after each on-policy update. This is reflected in our study as well. SAC outperforms PPO even though it is trained only 450k timesteps as opposed to the 1 million timesteps that the PPO is trained on.
 
-- Comment on sample efficiency, training stability, wall-clock training time, and reliability across seeds; 
-- Also comment on the qualitative behaviour of the learned policies: what do they look like? Do you think they have adequately solved the task? Why or why not?
+PPO has consistently narrower confidence band as compared to SAC, hence showing greater training stability. This can attributed to the clipped objective of PPO. SAC shows wider variance, characteristic of the interaction between actor, critic and target network causing instability because they are all trying to mutually update themselves in accordance to a moving target. PPO entirely avoides this because its critic is involved in caculating advantage for the current batch and not in a continuous feedback loop with a replay buffer and a target network. Neither model has fully converged at the end of training. 
 
-- *Sample efficiency*: SAC higher 
-  - theoretically, since SAC is an off policy method 
-  - SAC was only trained over 450K time steps as opposed to PPO's 1 million timesteps still SAC shows better performance 
+Despite fewer timesteps SAC consistently had higher wall clock time due to per step computation: replay buffer sampling, multiple network updates versus PPO's amortised batch updates. 
+#figure(
+  table(
+    columns: (auto, auto, auto, auto),
+    align: (left, right, right, right),
+    stroke: 0.5pt,
+    table.header([], [*HalfCheetah-v4*], [*Ant-v4*]),
+    [*PPO*], [1hr], [1hr 10min],
+    [*SAC*], [2hr], [1hr 40min],
+  ),
+  caption: [Wall clock training time for PPO and SAC across different environments],
+) <tab4>
 
-- Training stability:
+SAC is therefore preferable when environment interactions are the bottleneck, such as real-world robotics, while PPO is preferable when fast simulation makes data collection cheap.
 
-- wall clock training time: SAC higher
-  - SAC 
-    - half cheetah: 2 hrs
-    - ant: 1hr 40min
-  - PPO
-    - ant: 1hr 10 min
-    - half cheetah: 1hr 
+PPO demonstrates consistently low variance throughout training, with a narrow confidence band across the full 1M steps, indicating that its clipped objective produces highly reproducible learning trajectories regardless of random initialisation. SAC exhibits notably higher seed variance reflecting the sensitivity of its continuous actor-critic feedback loop to initial conditions. Towards the end of training SAC's variance narrows, suggesting that its entropy regularisation term eventually guides different seeds toward similarly performant policies despite mid-training instability. Overall, PPO is the more reliable algorithm across seeds, while SAC trades seed reliability for substantially higher final performance.
 
-  - from fig we can tell ppo shows better stability across seeds
+In the case of HalfCheetah both policies have managed to learn almost the same thing. However, while observing both side by side one can tell that the policy learnt by SAC seems more natural, more like an actual animal one might spot running somewhere. It is also worth noting that the SAC policy is produces a much faster locomotion compared to the PPO policy.
 
-We found a general trend of decreasing performance while shifting from HalfCheetah-v4 environment to Ant-v4 environment. This can be attributed to an increase in complexity for achieving locomotion. [Ant-v4 more complex because more joints to control $6->8$, there is also a complexity of maintaining a heading or building a heading agnostic locomotion strategy.]. SAC consistently outperformed PPO across both environments; this has been discussed in detail later in this section.
-// TODO: This needs much more work, it is worth 20 marks.
-// missing subsections: sample efficiancy, training stablity,  wall-clock time, reliability across seeds and qualitative policy behaviour. We only talk about hyperparameters and nothing else.
-
-
-We found a general trend of decreasing performance while shifting from HalfCheetah-v4 environment to Ant-v4 environment. This can be attributed to an increase in complexity for achieving locomotion. [Ant-v4 more complex because more joints to control $6->8$, there is also a complexity of maintaining a heading or building a heading agnostic locomotion strategy.]. SAC consistently outperformed PPO across both environments; this has been discussed in detail later in this section.
-
-$lambda = 0.95$ & $epsilon.alt = 0.3$
-We got the best performance from *PPO* for *HalfCheetah-v4* environment using *${lambda=0.95, epsilon.alt = 0.3}$* giving an average episodic return of *4568.06* and for *Ant-v4* environment using *${lambda = 0.9,epsilon.alt = 0.3}$* giving an average episodic return of *3204.60*. We can infer that a more permissive policy update constraint was required because of having a limited training budget. We notice a shift towards Temporal Difference approximations of advantage showing better performance dk y.
+Looking at what the best policy under SAC has learned is rather peculiar. Instead on using all four limbs to move as one would expect to see taking inspiration from what is found in nature, the policy has learned to use two limbs to just stabilise itself and the other two limbs to push forward. It's motion can almost be described as a rowing motion, with two limbs staying almost stationary and effectively only using two limbs to move. On the contrary to this, we find that PPO has learned a policy that involves are more cohesive use of all the limbs. You see a lot more contribution of all the limbs but the SAC policy results in much faster locomotion. Another interesting thing to notice is that both have ended choosing to maintain a specific orientation, as in while moving both policies (SAC and PPO) tend to correct their body orientaiton with respect to the direction of motion as if having a prefered orientation, similar to how humans face the direction the move in while walking instead of say walking sideways. 
 
 Even though these methods work generally well and accomodate the above mentioned challenges, it is important to note that they individually work best for certain cases. PPO is feasible and effective in simulation-driven robotics workflows, where large amounts of data can be generated cheaply. In contrast, SAC is more feasible for real-world robotics applications. Its sample efficiency, robustness to noise, and ability to learn from off-policy data make it better suited for physical systems with limited interaction budgets, however it is tough to tune and is rather sensitive to hyperparameter tuning.
 
-- comparatively SAC gave better performance than PPO
-
 // NOTE: We don't need to mention this here, we cover the same thing in Relevance section
 // Even though these methods work generally well and accomodate the above mentioned challenges, it is important to note that they individually work best for certain cases. PPO is feasible and effective in simulation-driven robotics workflows, where large amounts of data can be generated cheaply. In contrast, SAC is more feasible for real-world robotics applications. Its sample efficiency, robustness to noise, and ability to learn from off-policy data make it better suited for physical systems with limited interaction budgets, however it is tough to tune and is rather sensitive to hyperparameter tuning.
-
-- SAC
-  - *high $gamma$*: locomotion tasks are long horizon planning tasks
-  - *high $tau$*: performed better with incorporating immediate changes
-
-- PPO
-  - *high $epsilon.alt$*: permissive policy update constraint
-  - *mid $lambda$*: exact monte carlo ($lambda=1$) is not good should just lean towards monte carlo
 
 // ─── Proposed Robotics Task (25 marks) ─────────────────────────────────────
 = Proposed Robotics Task
