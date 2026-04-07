@@ -176,109 +176,22 @@ This removes $alpha$ as a manual hyperparameter: it decreases as the policy impr
 
 = Relevance to Robotics
 
-Robotics problems typically involve continuous state and action spaces, noisy observations, and a strong need for stable learning that makes classical RL approaches impractical. PPO and SAC address several of these, which has led to them becoming baseline algorithms in robotics research.
+Robotics problems typically involve continuous state and action spaces, noisy observations, and a strong need for stable learning that make classical RL approaches impractical. PPO and SAC address several of these challenges and both natively operate in continuous action spaces: PPO parameterises a Gaussian policy while SAC uses a squashed Gaussian to produce bounded actions, which is fundamental for outputting real-valued torques or joint velocities.
 
-Both methods natively operate in continuous state and action spaces. PPO parameterises a Gaussian policy from which actions are sampled, while SAC uses a squashed Gaussian to produce bounded continuous actions. This is fundamental to robotics where the agent must output real-valued torques, joint angles, or velocities rather than choosing from a discrete set.
-
-PPO is comparatively robust to catastrophic policy updates because of the clipped objective, and is straightforward to implement i.e. there is a single optimiser, no replay buffer, no target networks. This simplicity also makes it easy to parallelise across many simulation instances, making PPO most feasible in simulation-driven workflows (sim-to-real pipelines) where data generation is cheap.
-
-SAC is especially appealing for real-world robotics, where data collection is expensive and limited. Being an off-policy method, it reuses all past experience via a replay buffer, making it substantially more sample efficient. SAC's entropy-regularised objective also encourages the policy to remain stochastic, reducing over-reliance on any single observation and providing inherent robustness to the sensor noise present in physical systems.
+PPO is robust to catastrophic updates due to the clipped objective and is straightforward to implement with a single optimiser, no replay buffer, and no target networks. This makes it easy to parallelise across many simulation instances, making it most suited to sim-to-real pipelines where data is cheap. SAC is more appealing for real-world robotics where data collection is expensive: it reuses all past experience via a replay buffer for substantially better sample efficiency, and its entropy-regularised objective keeps the policy stochastic, providing inherent robustness to sensor noise.
 
 
 // ─── Environment Description (6 marks) ─────────────────────────────────────
 
 = Environment Description
 
-// TODO: We need to mention the MDP formulation!!
+We train in HalfCheetah-v4 and Ant-v4 from MuJoCo Gymnasium @mujoco. Both are locomotion tasks with continuous action spaces, chosen because they represent different levels of complexity under the same objective, making them directly comparable for benchmarking PPO and SAC.
 
-We chose to train in the Ant-v4 and HalfCheetah-v4 environments in MuJoCo gymnasium @mujoco. These were chosen because the represent different complexities of the same locomotion goal. This also makes them directly comparable for benchmarking PPO and SAC.
+*HalfCheetah-v4* is a planar 2D biped with 6 actuated joints. The state space $cal(S) subset.eq RR^17$ contains torso height and pitch, joint angles for all 6 joints, and their time derivatives; the x-position is excluded to prevent the agent from memorising absolute position. The action space $cal(A) subset.eq [-1,1]^6$ is the torque applied to each joint. The reward is $r_t = w_"forward" dot.c dot(x) - w_"ctrl" attach(||a_t||, tr: 2, br: 2)$, rewarding forward velocity and penalising large torques. The episode never terminates early.
 
-The *HalfCheetah* is a 2-dimensional robot consisting of 9 body parts and 8 joints connecting them (including two paws). The goal is to apply torque to the joints to make the cheetah run forward (right) as fast as possible, with a positive reward based on the distance moved forward and a negative reward for moving backward. The cheetah's torso and head are fixed, and torque can only be applied to the other 6 joints over the front and back thighs (which connect to the torso), the shins (which connect to the thighs), and the feet (which connect to the shins).
+*Ant-v4* is a 3D quadruped with 8 actuated joints across 4 legs. The state space $cal(S) subset.eq RR^27$ contains torso height, orientation as a quaternion, hip and ankle joint angles for all 4 legs, and their time derivatives. The action space $cal(A) subset.eq [-1,1]^8$ is the torque on each joint. The reward is $r_t = r_"healthy" + w_"forward" dot.c dot(x) - w_"ctrl" attach(||a_t||, tr: 2, br: 2) - w_"contact" attach(||F_"contact"||, tr: 2, br: 2)$, adding a per-timestep survival bonus and a contact force penalty. The episode terminates if the torso height leaves $[0.2, 1.0]$.
 
-*MDP Formulation for HalfCheetah-v4*:-
-
-#let obs_space_hc = [*$S subset.eq RR^17$*\
-- Positional observations ($q_"pos"$, 8 elements):
-  - $z$: z-coordinate of the front tip (torso height)
-  - $theta$: angle of the front tip
-  - Angular positions of: back thigh, back shin, back foot, front thigh, front shin, front foot
-- Velocity observations ($q_"vel"$, 9 elements):
-  - $dot(x)$: velocity of the x-coordinate of the front tip
-  - $dot(z)$: velocity of the z-coordinate of the front tip
-  - $dot(theta)$: angular velocity of the front tip
-  - Angular velocities of: back thigh, back shin, back foot, front thigh, front shin, front foot
-  ]
-
-#let action_space_hc = [*$A subset.eq [-1,1]^6$*
-- torque on 6 joints 
-  - 3 in hind leg 
-  - 3 in front leg]
-
-#let term_condn_hc = [The Half Cheetah never terminates.]
-
-#let reward_fn_hc = [
-  *Reward* = _forward_reward_ - _ctrl_cost_
-  - *Forward Reward*: reward for moving forward $w_"forward" times (d x)/(d t)$
-  - *Control Cost*: a negative reward to penalize the Half Cheetah for taking actions that are too large $w_"control" times attach(||"action"||,tr:2,br:2)$
-]
-
-#figure(
-  table(
-    columns: (auto, auto, auto, auto),
-    align: (left, left, left, left),
-    stroke: 0.5pt,
-    table.header([*Observation Space*], [*Action Space*], [*Termination Condition*], [*Reward Function*]),
-    obs_space_hc, action_space_hc, term_condn_hc, reward_fn_hc
-  ),
-  caption: [MDP formulation for HalfCheetah-v4],
-) <mdp_form_hc>
-
-
-The *Ant* is a 3D quadruped robot consisting of a torso (free rotational body) with four legs attached to it, where each leg has two body parts. The goal is to coordinate the four legs to move in the forward (right) direction by applying torque to the eight hinges connecting the two body parts of each leg and the torso (nine body parts and eight hinges).
-
-*MDP Formulation for Ant-v4*:-
-
-#let obs_space_a = [
-  *$S subset.eq RR^27$*
-  - Positional observations ($q_"pos"$, 13 elements):
-    - $z$: z-coordinate of the torso
-    - $bold(q)_"orient" in RR^4$: orientation of the torso as a quaternion $(w, x, y, z)$
-    - Angular positions of 8 joints: hip and ankle joints for each of the 4 legs
-  - Velocity observations ($q_"vel"$, 14 elements):
-    - $dot(x), dot(y), dot(z)$: translational velocities of the torso
-    - $omega_x, omega_y, omega_z$: angular velocities of the torso
-    - Angular velocities of 8 joints: hip and ankle joints for each of the 4 legs
-]
-
-#let action_space_a = [
-  *$A subset.eq [-1,1]^8$*\
-  - Torque on 8 joints
-    - 2 joints per limb
-]
-
-#let term_condn_a = [
-  - Any of the state space values is no longer finite.
-  - The z-coordinate of the torso (the height) is not in the closed interval given by the healthy_z_range argument (default is $[0.2,1.0]$).
-]
-
-#let reward_fn_a = [
-  *Reward* = _healthy_reward_ + _forward_reward_ - _ctrl_cost_ - _contact_cost_
-  - *Healthy Reward*: every timestep that the Ant is healthy (defined by termination conditions), it gets a reward of fixed value _healthy_reward_ (default is 1).
-  - *Forward Reward*: reward for moving forward $w_"forward" times (d x)/(d t)$
-  - *Control Cost*:A negative reward to penalize the Ant for taking actions that are too large $w_"control" times attach(||"action"||,tr:2,br:2)$
-  - *Contact Cost*: a negative reward to penalize the Ant if the external contact forces are too large $w_"contact" times attach(||F_"contact"||,tr: 2, br: 2)$
-]
-
-#figure(
-  table(
-    columns: (auto, auto, auto, auto),
-    align: (left, left, left, left),
-    stroke: 0.5pt,
-    table.header([*Observation Space*], [*Action Space*], [*Termination Condition*], [*Reward Function*]),
-    obs_space_a, action_space_a, term_condn_a, reward_fn_a
-  ),
-  caption: [MDP formulation for Ant-v4],
-) <mdp_form_hc>
+Notably, HalfCheetah never terminates early while Ant uses health-based termination. This difference significantly affects training dynamics, as discussed in our hyperparameter analysis.
 
 // ─── Hyperparameter Analysis (12 marks) ─────────────────────────────────────
 
@@ -286,11 +199,9 @@ The *Ant* is a 3D quadruped robot consisting of a torso (free rotational body) w
 
 We chose to tune clip coefficient ($epsilon.alt$) and $lambda$ (in GAE) as these affect the algorithm's working to its core.
 
-The clip coefficient controls the policy update size, this effectively dictates how quickly or slowly the policy is moving towards the optimal. Having the correct step size is important because if the step size is too small then the policy would take a lot of timesteps to reach the optimal or else if the step size is to big the policy would end up overshooting the optimal, both cases result in the formulation of a poor policy.
+The clip coefficient controls the policy update size. Too small a value slows convergence; too big and the policy overshoots the optimum, both resulting in poor performance. Tuning $lambda$ controls the bias-variance tradeoff in advantage estimation. As $lambda$ moves from 0 to 1 it causes the shift from TD(0) at $lambda = 0$ (high bias, bootstraps from the value function) to Monte Carlo at $lambda = 1$ (unbiased but high variance, accumulated over full episode lengths).
 
-Tuning lambda controls the bias-variance trade off in estimating the advantage term. As lambda moves from 0 to 1 it cause the shift in advantage estimation being carried out as TD(0) at $lambda = 0$ (high bias) and as Monte Carlo method at $lambda = 1$ (high variance). Temporal Difference introduces bias as it bootstraps value estimates from the immediate next step. Monte Carlo methods are unbiased but inherently show high variance, this originates from variance being accumulated over the length of the episodes. Hence, requires the agent to be run on many episodes for the value estimates to reliably converge.
-
-The following values of $epsilon.alt$ were chosen: $epsilon.alt in {0.1,0.2,0.3}$. We have explored values around the published default @PPO ($epsilon.alt = 0.2$) testing change in agent behaviour under a transition from a strict ($epsilon.alt = 0.1$) to a permissive ($epsilon.alt = 0.3$) policy update constraint. For $lambda$ the following values were chosen: $lambda in {0.9, 0.95, 1.00}$. Similar strategy of exploring around the published defualt @PPO is followed, testing change in agent behaviour as advatage estimation moves from pure monte carlo at $lambda = 1$ to sligthy towards TD(0) at $lambda = 0.90$.
+The following values of $epsilon.alt$ were chosen: $epsilon.alt in {0.1,0.2,0.3}$. We have explored values around the published default @PPO ($epsilon.alt = 0.2$) testing change in agent behaviour under a transition from a strict ($epsilon.alt = 0.1$) to a permissive ($epsilon.alt = 0.3$) policy update constraint. For $lambda$ the following values were chosen: $lambda in {0.9, 0.95, 1.00}$. A similar strategy of exploring around the published default @PPO is followed, testing change in agent behaviour as advantage estimation moves from pure Monte Carlo at $lambda = 1$ to slightly towards TD(0) at $lambda = 0.90$.
 
 
 #figure(
@@ -321,19 +232,11 @@ The following values of $epsilon.alt$ were chosen: $epsilon.alt in {0.1,0.2,0.3}
   caption: [Average episodic return in Ant-v4 environment with different $epsilon$ and $lambda$ configurations averaged over 10 episodes using PPO algorithm],
 ) <tab2>
 
-Here we found $epsilon=0.3 "and" lambda = 0.90$ showed the best performance. $epsilon=0.3$ still performs the best despite the possibility of destabilisation because under the limited time budget the speed benefit of larger updates outweigh the occasional destabilisation costs, it is a bigger risk to be moving too slowly and not reaching the optimum. Moving further away from Monte Carlo estimation has proven to be benefical because of the following reasons, firstly, now the survival reward is dense and immediate (the agent receives a +1 reward for every healthy timestep) so short horizon estimation of TD(0) actually captures useful signals, secondly, now the agent is controlling 8 joints across 4 limbs so the estimations are more susceptible to noise therefore having a harder discount improves performance and lastly, with shorter episodes Monte Carlo methods become unreliable since a successful run of 1000 timesteps is not guaranteed.  
+Here we found $epsilon=0.3 "and" lambda = 0.90$ showed the best performance. $epsilon=0.3$ still performs the best despite the possibility of destabilisation because under the limited time budget the speed benefit of larger updates outweigh the occasional destabilisation costs, it is a bigger risk to be moving too slowly and not reaching the optimum. Moving further away from Monte Carlo estimation has proven to be beneficial because of the following reasons, firstly, now the survival reward is dense and immediate (the agent receives a +1 reward for every healthy timestep) so short horizon estimation of TD(0) actually captures useful signals, secondly, now the agent is controlling 8 joints across 4 limbs so the estimations are more susceptible to noise therefore having a harder discount improves performance and lastly, with shorter episodes Monte Carlo methods become unreliable since a successful run of 1000 timesteps is not guaranteed. We therefore used ($epsilon.alt = 0.3, lambda = 0.95$) for HalfCheetah and ($epsilon.alt = 0.3, lambda = 0.9$) for Ant in our final comparison runs.
 
 = SAC Hyperparameter Tuning
 
-For the purpose of hyperparameter tuning, $gamma$, the reward discount and tau, the polyak averaging constant were tuned.
-
-$gamma$ plays a pivotal role in dictating the agents behaviour. It controls, to describe it intuitively, the patience of the agent. Having a larger $gamma$ forces to the agent to make more long sighted decisions that is give more weight to future rewards, on the other hand a smaller $gamma$ forces the agents to make short sighted decisions.
-
-$tau$, or the polyak averaging constant, is used in calculating a moving average of the value network weights directly contribute to Q-function leanring. It weighs the contribution of current value network weights and target value network weights (previous moving average estimate). Essentially controlling the influence of immediate changes encountered as part of learning.
-
-For hyperparameter tuning the number of training steps were reduced to 450k from 1000k(1 million).
-
-The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Here we have tested the change that arises from agressive discounting($gamma = 0.90$) to long horizon planning ($gamma = 0.99$). For $tau$ we chose: $tau in {0.05, 0.001, 0.005}$. Here we have explored towards the upper range of $tau$ relative to the published default @SAC because exploring even lower values of $tau$ on a limited training budget would be uninformative.
+We tuned $gamma$ (discount factor, controlling the agent's planning horizon) and $tau$ (Polyak averaging constant, controlling how quickly the target networks track the online networks). We swept $gamma in {0.90, 0.95, 0.99}$, testing from aggressive discounting to long-horizon planning, and $tau in {0.005, 0.01, 0.05}$, explored towards the upper range relative to the published default @SAC, tested on a reduced budget of 450k steps to keep the sweep tractable.
 
 #figure(
   table(
@@ -348,7 +251,7 @@ The following values for $gamma$ were chosen: $gamma in {0.90, 0.95, 0.99}$. Her
   caption: [Average episodic return in HalfCheetah-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using SAC algorithm],
 ) <tab3>
 
-We get the best performance from $gamma = 0.99 "and" tau = 0.05$. The domination of $gamma=0.99$ is the clearest signal as it outperforms all other values of $lambda$ for every value of $tau$, this is because the locomotion goal that the HalfCheetah-v4 environment poses requires sustained coordinated joint motion over many timesteps   i.e. its a long horizon problem hence a high $gamma=0.99$ ensures that future rewards are given significant weight. $tau=0.05$ dominates because HalfCheetah-v4 has smooth and relatively stationery reward gradients i.e. Q-function don't change dramatically between updates hence can afford to update more agressively.
+We get the best performance from $gamma = 0.99 "and" tau = 0.05$. The domination of $gamma=0.99$ is the clearest signal as it outperforms all other values of $gamma$ for every value of $tau$, this is because the locomotion goal that the HalfCheetah-v4 environment poses requires sustained coordinated joint motion over many timesteps i.e. its a long horizon problem hence a high $gamma=0.99$ ensures that future rewards are given significant weight. $tau=0.05$ dominates because HalfCheetah-v4 has smooth and relatively stationary reward gradients i.e. Q-functions don't change dramatically between updates hence can afford to update more aggressively.
 
 #figure(
   table(
@@ -363,7 +266,7 @@ We get the best performance from $gamma = 0.99 "and" tau = 0.05$. The domination
   caption: [Average episodic return in Ant-v4 environment with different $gamma$ and $tau$ configurations averaged over 10 episodes using SAC algorithm],
 ) <tab4>
 
-We find that $gamma=0.99 "and" tau=0.01$. $gamma=0.99$ dominates again for the same reasons discussed previously. However, and interesting thing to notice is that here $tau=0.01$ gives a better performance as opposed to $tau=0.05$ which showed the best performance for HalfCheetah. This because the Q-function landscape now shifts more rapidly, hence agressive updte strategies ($tau=0.05$) introduce instability. Early termination causes sharp discontinuities in Q-function values near termination states and a fast moving target network would amplify these rather than smooth them over. Therefore, $tau=0.01$ strikes a balance between tracking changes fast enough and remaining conservative enought to avoid instability.
+We find that $gamma=0.99 "and" tau=0.01$ gives the best performance. $gamma=0.99$ dominates again for the same reasons discussed previously. However, an interesting thing to notice is that here $tau=0.01$ gives better performance as opposed to $tau=0.05$ which was best for HalfCheetah. This is because the Q-function landscape now shifts more rapidly, hence aggressive update strategies ($tau=0.05$) introduce instability. Early termination causes sharp discontinuities in Q-function values near termination states and a fast moving target network would amplify these rather than smooth them over. Therefore, $tau=0.01$ strikes a balance between tracking changes fast enough and remaining conservative enough to avoid instability. We selected ($gamma = 0.99, tau = 0.05$) for HalfCheetah and ($gamma = 0.99, tau = 0.01$) for Ant in our final comparison runs.
 
 // ─── Results and Comparison (20 marks) ─────────────────────────────────────
 = Results and Comparison\
