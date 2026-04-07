@@ -299,7 +299,7 @@ PPO demonstrates consistently low variance throughout training, with a narrow co
     columns: 2,
     gutter: 2mm,
     image("./figures/final_ant.png",height: 25%),
-    image("./figures/final_ant.png",height: 25%),
+    image("./figures/final_hc.png",height: 25%),
   ),
   caption: [
     Plots of final runs across $"seed"={1,2,3}$ for both HalfCheetah-v4 and Ant-v4 environments
